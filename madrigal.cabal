@@ -29,12 +29,21 @@ executable madrigal
     -- Modules included in this executable, other than Main.
     other-modules: UPrelude
     -- LANGUAGE extensions used by modules in this package.
-    default-extensions: UnicodeSyntax
+    default-extensions: LambdaCase
+                      , UnicodeSyntax
     other-extensions: Strict
+                      TemplateHaskell
     -- Other library packages from which modules are imported.
     build-depends: base
                  , base-unicode-symbols
+                 , containers
                  , filepath
+                 , monad-logger
+                 , mtl
+                 , stm
+                 , time
+                 , vulkan-api
+                 , template-haskell
     -- Directories containing source files.
     hs-source-dirs: src
     -- Base language which the package is written in.

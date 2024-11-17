@@ -2,5 +2,9 @@ module Main where
 -- where the magic happens...
 import Prelude()
 import UPrelude
+import Sign ( checkStatus )
+import Prog.Init ( runProg )
+import Vulk ( runVulk )
+
 main ∷ IO ()
-main = print "i am madrigal"
+main = runProg checkStatus runVulk
