@@ -95,7 +95,7 @@ getTime = do
   now <- liftIO getSystemTime
   start <- stStartT <$> get
   let deltaSeconds      = systemSeconds now - systemSeconds start
-      deltaNS :: Int    = fromIntegral (systemNanoseconds now)
+      deltaNS           = fromIntegral (systemNanoseconds now)
                             - fromIntegral (systemNanoseconds start)
       seconds :: Double = fromIntegral deltaSeconds
                             + fromIntegral deltaNS / 1e9
