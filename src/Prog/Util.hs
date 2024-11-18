@@ -17,7 +17,6 @@ import Data.String (fromString)
 import Data.Time.Clock.System
     ( SystemTime(systemNanoseconds, systemSeconds), getSystemTime )
 import GHC.Stack ( HasCallStack, prettyCallStack, callStack )
-import Graphics.Vulkan ( Int64 )
 import System.Exit ( ExitCode(ExitSuccess) )
 import Prog
     ( MonadIO(liftIO)
@@ -96,7 +95,7 @@ getTime = do
   now <- liftIO getSystemTime
   start <- stStartT <$> get
   let deltaSeconds      = systemSeconds now - systemSeconds start
-      deltaNS :: Int64  = fromIntegral (systemNanoseconds now)
+      deltaNS :: Int    = fromIntegral (systemNanoseconds now)
                             - fromIntegral (systemNanoseconds start)
       seconds :: Double = fromIntegral deltaSeconds
                             + fromIntegral deltaNS / 1e9

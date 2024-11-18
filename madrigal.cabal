@@ -28,6 +28,21 @@ executable madrigal
     main-is: Main.hs
     -- Modules included in this executable, other than Main.
     other-modules: UPrelude
+                 , Data
+                 , Prog
+                 , Prog.Data
+                 , Prog.Init
+                 , Prog.Util
+                 , Sign
+                 , Sign.Data
+                 , Sign.Except
+                 , Sign.Queue
+                 , Sign.Var
+                 , Vulk
+                 , Vulk.Callback
+                 , Vulk.Data
+                 , Vulk.GLFW
+                 , Vulk.VulkGLFW
     -- LANGUAGE extensions used by modules in this package.
     default-extensions: LambdaCase
                       , UnicodeSyntax
@@ -38,11 +53,12 @@ executable madrigal
                  , base-unicode-symbols
                  , containers
                  , filepath
+                 , GLFW-b
                  , monad-logger
                  , mtl
                  , stm
                  , time
-                 , vulkan-api
+                 , vulkan
                  , template-haskell
     -- Directories containing source files.
     hs-source-dirs: src
