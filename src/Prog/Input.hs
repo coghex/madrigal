@@ -17,7 +17,7 @@ import Prog.Init ( initInpState, initKeyMap )
 import Sign.Data
     ( Event(..), LogLevel(..),
       SysAction(..), TState(..)
-    , InputStateChange(..) )
+    , InputStateChange(..), TestParam(..) )
 import Sign.Var ( atomically, readTVar, writeTVar, modifyTVar' )
 import Sign.Queue
     ( readChan, tryReadChan, tryReadQueue, writeQueue )
@@ -89,6 +89,10 @@ processInput env win inpSt keymap inp = case inp of
     if ks ≡ GLFW.KeyState'Pressed then case lookupKey keymap (findKey k) of
       KFEscape → do
         atomically $ writeQueue (envEventQ env) $ EventSys SysExit
+        return ResInpSuccess
+      KFTest → do
+        atomically $ writeQueue (envEventQ env)
+          $ EventSys $ SysTest $ TPWindow
         return ResInpSuccess
       _        → return ResInpSuccess
     else return ResInpSuccess

@@ -39,7 +39,13 @@ data InputStateChange = ISCKeyPress !KeyFunc
 data SysAction = SysRecreate | SysReload
                | SysFullScreen
                | SysWindowed Int Int Int Int
+               | SysTest TestParam
                | SysExit | SysNULL deriving (Show, Eq)
+
+-- | system testing parameters
+data TestParam
+  = TPWindow
+  | TPNULL deriving (Show, Eq)
 
 -- | input sources enumerated
 data InputEvent
