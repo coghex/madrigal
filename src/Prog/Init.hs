@@ -5,10 +5,11 @@
 module Prog.Init where
 import Prelude()
 import UPrelude
-import Control.Monad.Logger.CallStack as Logger
+import qualified Control.Monad.Logger.CallStack as Logger
 import Data.Time.Clock.System ( getSystemTime )
+import qualified Data.Map as Map
 import GHC.Stack ( HasCallStack )
-import Data ( FPS(..) )
+import Data ( FPS(..), Key(..), KeyMap(..), KeyFunc(..) )
 import Prog ( Prog(unProg) )
 import Prog.Data ( Env(..), State(..)
                  , ISKeys(..), InputState(..)
@@ -53,7 +54,7 @@ initState _   = do
                              , stWindow  = Nothing
                              , stInput   = is
                              , stStartT  = st
-                             , stFPS     = FPS 60.0 60 True
+                             , stFPS     = FPS 60.0 60
                              , stTick    = Nothing }
 
 -- | initial empty input state
@@ -69,3 +70,17 @@ initInpState = InputState { inpStatus = ISSNULL
                         , keyDown  = False
                         , keyRight = False
                         , keyAccel = (0,0) }
+
+-- | creates the base key mapping
+-- TODO: load this from a file
+initKeyMap ∷ KeyMap
+initKeyMap = KeyMap $ Map.fromList
+  [(KFEscape,[KeyEscape])
+  ,(KFReturn,[KeyReturn])
+  ,(KFScrollUp,[KeyW,KeyUp])
+  ,(KFScrollDown,[KeyS,KeyDown])
+  ,(KFScrollLeft,[KeyA,KeyLeft])
+  ,(KFScrollRight,[KeyD,KeyRight])
+  ,(KFShell,[KeyTilde])
+  ,(KFFullScreen,[KeyF11])
+  ,(KFTest,[KeyT]), (KFTest2,[KeyI])]

@@ -6,8 +6,8 @@ import Prelude()
 import UPrelude
 import qualified Control.Monad.Logger.CallStack as Logger
 import Data.Time.Clock.System ( SystemTime )
-import Data ( FPS(..) )
-import Sign.Data ( Event, TState, InputAct )
+import Data ( FPS(..), KeyFunc(..), Key(..) )
+import Sign.Data ( Event, TState )
 import Sign.Except ( ProgExcept )
 import Sign.Queue ( Queue, TChan )
 import Sign.Var ( TVar )
@@ -16,7 +16,7 @@ import qualified Vulk.GLFW as GLFW
 -- | specific utility actions
 data ProgResult = ProgSuccess | ProgError deriving (Show, Eq)
 -- | glfw loop status
-data LoopControl = ContinueLoop | AbortLoop deriving Eq
+data LoopControl = ContinueLoop | AbortLoop deriving (Show, Eq)
 
 -- | env holds only pointers
 data Env = Env { envEventQ ∷ Queue Event
@@ -48,6 +48,11 @@ data InputState = InputState { inpStatus ∷ ISStatus
 data ISStatus = ISSLogDebug String
               | ISSNULL deriving (Show, Eq)
 
+-- | possible return types
+data InpResult = ResInpSuccess | ResInpError String
+               | ResInpState InputState
+               | ResInpChangeKey KeyFunc Key Int | ResInpNULL
+
 -- | certain keys state
 data ISKeys = ISKeys { keyUp    ∷ Bool
                      , keyLeft  ∷ Bool
@@ -55,3 +60,9 @@ data ISKeys = ISKeys { keyUp    ∷ Bool
                      , keyRight ∷ Bool
                      , keyAccel ∷ (Double,Double)
                      } deriving (Show, Eq)
+
+-- | possible input actions
+data InputAct = InpActKey GLFW.Key GLFW.KeyState GLFW.ModifierKeys 
+              | InpActTest
+              | InpActNULL deriving (Show, Eq)
+

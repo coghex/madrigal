@@ -41,9 +41,8 @@ data Cards α = Cards   { cNorth ∷ Maybe α
 -- | print args logInfo specific info from the lowest levels
 data PrintArg = PrintNULL deriving (Show, Eq)
 
--- | fps defined as actual and desired,
---   and whether or not to display
-data FPS = FPS Double Int Bool deriving (Show, Eq)
+-- | fps defined as actual and desired
+data FPS = FPS Double Int deriving (Show, Eq)
 
 -- | generic camera for movement
 data Camera = Camera { cam ∷ (Double,Double,Double)

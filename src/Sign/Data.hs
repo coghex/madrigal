@@ -4,14 +4,19 @@ module Sign.Data where
 import Prelude()
 import UPrelude
 import Data ( PrintArg(..), KeyMap(..), KeyFunc(..) )
+import qualified Vulk.GLFW as GLFW
 
 -- | timer state is used for all the timers
 data TState = TStart | TStop | TPause | TNULL deriving (Show, Eq)
 
 -- | events processed by the main thread
-data Event = EventLog !LogLevel !String
+data Event = EventError !GLFW.Error !String -- GLFW specific
+           -- | logs into the monadic logger, also allows stdout
+           | EventLog !LogLevel !String
            -- | changes to the state of the input
            | EventInputState !InputStateChange
+           -- | key/mouse input
+           | EventInput !InputEvent
            -- | lowest level actions go here
            | EventSys !SysAction
 
@@ -36,5 +41,11 @@ data SysAction = SysRecreate | SysReload
                | SysWindowed Int Int Int Int
                | SysExit | SysNULL deriving (Show, Eq)
 
--- | possible input actions
-data InputAct = InpActNULL deriving (Show, Eq)
+-- | input sources enumerated
+data InputEvent
+  = InputKey !GLFW.Window !GLFW.Key !Int !GLFW.KeyState
+      !GLFW.ModifierKeys
+  | InputMouseButton !GLFW.Window !GLFW.MouseButton
+      !GLFW.MouseButtonState !GLFW.ModifierKeys
+  | InputMouseScroll !GLFW.Window !Double !Double
+

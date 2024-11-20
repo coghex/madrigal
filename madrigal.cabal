@@ -19,7 +19,7 @@ build-type: Simple
 extra-doc-files: CHANGELOG.md
 
 common warnings
-    ghc-options: -Wall
+    ghc-options: -Wall -threaded
 
 executable madrigal
     -- Import common warning flags.
@@ -31,7 +31,10 @@ executable madrigal
                    Data
                    Prog
                    Prog.Data
+                   Prog.Event
                    Prog.Init
+                   Prog.Input
+                   Prog.KeyEvent
                    Prog.Util
                    Sign
                    Sign.Data
@@ -39,12 +42,16 @@ executable madrigal
                    Sign.Queue
                    Sign.Var
                    Vulk
+                   Vulk.Callback
+                   Vulk.Data
                    Vulk.GLFW
+                   Vulk.VulkGLFW
     -- LANGUAGE extensions used by modules in this package.
     default-extensions: LambdaCase
                       , UnicodeSyntax
     other-extensions: Strict
-                      TemplateHaskell
+                    , StrictData
+                    , TemplateHaskell
     -- Other library packages from which modules are imported.
     build-depends: base
                  , base-unicode-symbols

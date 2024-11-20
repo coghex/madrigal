@@ -1,3 +1,4 @@
+{-# LANGUAGE Strict #-}
 module Main where
 -- where the magic happens...
 import Prelude()
