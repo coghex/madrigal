@@ -14,7 +14,7 @@ import Net.Data ( NetServiceType(..), NetAction(..)
                 , NetService(..), NetResult(..) )
 import Prog ( MonadIO(liftIO), MonadReader(ask) )
 import Prog.Data ( Env(..) )
-import Sign.Data ( Event(..), LogLevel(..), TState(..) )
+import Sign.Data ( Event(..), LogLevel(..), TState(..), SysAction(..) )
 import Sign.Var ( atomically, readTVar, writeTVar, modifyTVar' )
 import qualified Sign.Queue as SQ ( writeQueue, tryReadQueue, readChan, tryReadChan )
 import Control.Concurrent (threadDelay)
@@ -135,36 +135,39 @@ startCommandThread env port = do
   _ ← forkIO $ fix $ \loop → do
     (_, _) ← readChan chan
     loop
-  commandloop sock chan 0
+  commandloop env sock chan 0
 
 type Msg = (Int,String)
 
-commandloop ∷ Socket → Chan Msg → Int → IO ()
-commandloop sock chan msgNum = do
+commandloop ∷ Env → Socket → Chan Msg → Int → IO ()
+commandloop env sock chan msgNum = do
   conn ← accept sock
-  forkIO (runCommand conn chan msgNum)
-  commandloop sock chan $! msgNum + 1
+  forkIO (runCommand env conn chan msgNum)
+  commandloop env sock chan $! msgNum + 1
 
-runCommand ∷ (Socket, SockAddr) → Chan Msg → Int → IO ()
-runCommand (sock, _) chan msgNum = do
+runCommand ∷ Env → (Socket, SockAddr) → Chan Msg → Int → IO ()
+runCommand env (sock, _) chan msgNum = do
     let broadcast msg = writeChan chan (msgNum, msg)
     hdl ← socketToHandle sock ReadWriteMode
     hSetBuffering hdl NoBuffering
-    hPutStr hdl "(madrigal) $> "
-    inp ← fmap init (hGetLine hdl)
-    broadcast ("--> " ⧺ inp)
-    hPutStrLn hdl $ "> " ⧺ inp
     commLine ← dupChan chan
     reader ← forkIO $ fix $ \loop → do
       hPutStr hdl $ "(madrigal) $> "
       (nextNum, line) ← readChan commLine
-      hPutStrLn hdl line
       loop
     handle (\(SomeException _) → return ()) $ fix $ \loop → do
       line ← fmap init (hGetLine hdl)
+      processInput env hdl line
       case line of
-        "quit" → hPutStrLn hdl "quitting..."
+        "exit" → hPutStrLn hdl "exiting..."
         _      → broadcast ("> " ⧺ line) >> loop
     killThread reader
     broadcast "goodbye"
     hClose hdl
+
+processInput ∷ Env → Handle → String → IO ()
+processInput env hdl "quit" = do
+  hPutStrLn hdl "quitting..."
+  atomically $ SQ.writeQueue (envEventQ env) $ EventSys SysExit
+processInput _   hdl inp
+  = hPutStrLn hdl $ "unknown command: " ⧺ inp
