@@ -44,7 +44,7 @@ data SysAction = SysRecreate | SysReload
 
 -- | system testing parameters
 data TestParam
-  = TPWindow
+  = TPWindow | TPNetwork
   | TPNULL deriving (Show, Eq)
 
 -- | input sources enumerated

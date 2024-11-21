@@ -29,6 +29,8 @@ executable madrigal
     -- Modules included in this executable, other than Main.
     other-modules: UPrelude
                    Data
+                   Net
+                   Net.Data
                    Prog
                    Prog.Data
                    Prog.Event
@@ -60,6 +62,7 @@ executable madrigal
                  , GLFW-b
                  , monad-logger
                  , mtl
+                 , network
                  , stm
                  , time
                  , vulkan

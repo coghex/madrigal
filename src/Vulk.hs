@@ -8,6 +8,8 @@ import Control.Monad ( when )
 import Control.Monad.State.Class ( gets, modify )
 import GHC.Stack ( HasCallStack)
 import Data ( FPS(..) )
+import Net ( networkThread )
+import Net.Data ( NetAction(..), NetServiceType(..) )
 import Prog ( Prog, MonadIO(liftIO), MonadReader(ask) )
 import Prog.Data ( Env(..), State(..), LoopControl(..) )
 import Prog.Event ( processEvents )
@@ -30,8 +32,13 @@ runVulk = do
   modify $ \s → s { stWindow = Just window }
   env ← ask
   liftIO $ atomically $ writeTVar (envWindow env) $ Just window
+  -- THREADS
   _ ← liftIO $ forkIO $ inputThread env window
   liftIO $ atomically $ writeChan (envInpCh env) TStart
+  _ ← liftIO $ forkIO $ networkThread env
+  liftIO $ atomically $ writeChan (envNetCh env) TStart
+  liftIO $ atomically $ writeQueue (envNetQ env)
+    $ NetActionNewService NSCommand
   glfwWaitEventsMeanwhile $ do
     let beforeSwapchainCreation ∷ Prog ε σ ()
         beforeSwapchainCreation =

@@ -92,7 +92,8 @@ processInput env win inpSt keymap inp = case inp of
         return ResInpSuccess
       KFTest → do
         atomically $ writeQueue (envEventQ env)
-          $ EventSys $ SysTest $ TPWindow
+          $ EventSys $ SysTest $ TPNetwork
         return ResInpSuccess
       _        → return ResInpSuccess
     else return ResInpSuccess
+  InpActNULL → return ResInpSuccess

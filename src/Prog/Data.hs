@@ -7,6 +7,7 @@ import UPrelude
 import qualified Control.Monad.Logger.CallStack as Logger
 import Data.Time.Clock.System ( SystemTime )
 import Data ( FPS(..), KeyFunc(..), Key(..) )
+import Net.Data ( NetAction(..) )
 import Sign.Data ( Event, TState )
 import Sign.Except ( ProgExcept )
 import Sign.Queue ( Queue, TChan )
@@ -22,6 +23,8 @@ data LoopControl = ContinueLoop | AbortLoop deriving (Show, Eq)
 data Env = Env { envEventQ ∷ Queue Event
                , envInpQ   ∷ Queue InputAct
                , envInpCh  ∷ TChan TState
+               , envNetQ   ∷ Queue NetAction
+               , envNetCh  ∷ TChan TState
                -- only use this one for reads i think
                , envWindow ∷ TVar (Maybe GLFW.Window) }
 
@@ -62,7 +65,7 @@ data ISKeys = ISKeys { keyUp    ∷ Bool
                      } deriving (Show, Eq)
 
 -- | possible input actions
-data InputAct = InpActKey GLFW.Key GLFW.KeyState GLFW.ModifierKeys 
-              | InpActTest
-              | InpActNULL deriving (Show, Eq)
+data InputAct  = InpActKey GLFW.Key GLFW.KeyState GLFW.ModifierKeys 
+               | InpActTest
+               | InpActNULL deriving (Show, Eq)
 

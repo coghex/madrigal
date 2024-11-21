@@ -32,10 +32,14 @@ initEnv = do
   eventQ  ← newQueue
   inpQ    ← newQueue
   inputCh ← newTChan
+  netQ    ← newQueue
+  netCh   ← newTChan
   win     ← atomically $ newTVar Nothing
   let env = Env { envEventQ = eventQ
                 , envInpQ   = inpQ
                 , envInpCh  = inputCh
+                , envNetQ   = netQ
+                , envNetCh  = netCh
                 , envWindow = win }
   envChan ← atomically $ newTVar env
   return (envChan, env)
