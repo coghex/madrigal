@@ -1,13 +1,27 @@
 {-# LANGUAGE Strict #-}
+{-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE OverloadedLists #-}
+{-# OPTIONS_GHC -Wno-name-shadowing #-}
 -- | vulkan specific draw loop
 module Vulk where
 import Prelude()
 import UPrelude
 import Control.Concurrent ( forkIO )
-import Control.Monad ( when )
+import Control.Exception ( bracket )
+import Control.Monad ( when, (=<<) )
 import Control.Monad.State.Class ( gets, modify )
+import Control.Monad.IO.Class
 import GHC.Stack ( HasCallStack)
+import qualified Data.Vector                       as V
 import Data ( FPS(..) )
+import Data.Bits ((.|.))
+import qualified Data.ByteString as BS
+import Data.List ( partition )
+import Data.Foldable ( toList, for_ )
+import qualified Data.Text                         as T
+import           Data.Text.Encoding
+import Say
 import Net ( networkThread )
 import Net.Data ( NetAction(..), NetServiceType(..) )
 import Prog ( Prog, MonadIO(liftIO), MonadReader(ask) )
@@ -19,9 +33,17 @@ import Sign.Data ( TState(TStart) )
 import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
 import Vulk.Data ( VulkanLoopData(..) )
+import Vulk.Instance
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
 import qualified Vulk.GLFW as GLFW
+import           Vulkan.CStruct.Extends
+import Vulkan.Extensions.VK_EXT_debug_utils
+import Vulkan.Extensions.VK_EXT_validation_features
+import Vulkan.Extensions.VK_KHR_portability_enumeration
+import Vulkan.Core10
+import qualified Vulkan.Core10.DeviceInitialization as DI
+import Vulkan.Zero
 
 runVulk ∷ HasCallStack ⇒ Prog ε σ ()
 runVulk = do
@@ -30,6 +52,11 @@ runVulk = do
   currentSec        ← liftIO $ atomically $ newTVar @Int 0
   window ← initGLFWWindow 800 600 "madrigal" windowSizeChanged
   modify $ \s → s { stWindow = Just window }
+
+  instCI   ← vulkInstanceCreateInfo
+  vulkInst ← createInstance instCI Nothing
+  _ ← destroyInstance vulkInst Nothing
+
   env ← ask
   liftIO $ atomically $ writeTVar (envWindow env) $ Just window
   -- THREADS

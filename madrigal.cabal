@@ -47,25 +47,62 @@ executable madrigal
                    Vulk.Callback
                    Vulk.Data
                    Vulk.GLFW
+                   Vulk.Instance
                    Vulk.VulkGLFW
     -- LANGUAGE extensions used by modules in this package.
-    default-extensions: LambdaCase
+    default-extensions: DataKinds
+                      , DefaultSignatures
+                      , DeriveFoldable
+                      , DeriveFunctor
+                      , DeriveTraversable
+                      , DerivingStrategies
+                      , DuplicateRecordFields
+                      , FlexibleContexts
+                      , FlexibleInstances
+                      , GADTs
+                      , GeneralizedNewtypeDeriving
+                      , InstanceSigs
+                      , LambdaCase
                       , UnicodeSyntax
+                      , MagicHash
+                      , NamedFieldPuns
+                      , NoMonomorphismRestriction
+                      , NumDecimals
+                      , OverloadedStrings
+                      , PatternSynonyms
+                      , PolyKinds
+                      , QuantifiedConstraints
+                      , RankNTypes
+                      , RecordWildCards
+                      , RoleAnnotations
+                      , ScopedTypeVariables
+                      , StandaloneDeriving
+                      , TupleSections
+                      , TypeApplications
+                      , TypeFamilyDependencies
+                      , TypeOperators
+                      , TypeSynonymInstances
+                      , ViewPatterns
     other-extensions: Strict
                     , StrictData
                     , TemplateHaskell
     -- Other library packages from which modules are imported.
     build-depends: base
                  , base-unicode-symbols
+                 , bytestring
                  , containers
                  , filepath
                  , GLFW-b
                  , monad-logger
                  , mtl
                  , network
+                 , say
                  , stm
                  , time
+                 , text
+                 , vector
                  , vulkan
+                 , vulkan-utils
                  , template-haskell
     -- Directories containing source files.
     hs-source-dirs: src
