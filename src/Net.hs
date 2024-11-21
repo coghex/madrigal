@@ -150,19 +150,21 @@ runCommand (sock, _) chan msgNum = do
     let broadcast msg = writeChan chan (msgNum, msg)
     hdl ← socketToHandle sock ReadWriteMode
     hSetBuffering hdl NoBuffering
-    hPutStrLn hdl "(madrigal) $>"
+    hPutStr hdl "(madrigal) $> "
     inp ← fmap init (hGetLine hdl)
+    broadcast ("--> " ⧺ inp)
     hPutStrLn hdl $ "> " ⧺ inp
     commLine ← dupChan chan
     reader ← forkIO $ fix $ \loop → do
+      hPutStr hdl $ "(madrigal) $> "
       (nextNum, line) ← readChan commLine
-      when (msgNum /= nextNum) $ hPutStrLn hdl line
+      hPutStrLn hdl line
       loop
     handle (\(SomeException _) → return ()) $ fix $ \loop → do
       line ← fmap init (hGetLine hdl)
       case line of
         "quit" → hPutStrLn hdl "quitting..."
-        _      → broadcast (inp ⧺ ": " ⧺ line) >> loop
+        _      → broadcast ("> " ⧺ line) >> loop
     killThread reader
     broadcast "goodbye"
     hClose hdl
