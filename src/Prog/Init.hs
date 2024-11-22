@@ -35,12 +35,12 @@ initEnv = do
   netQ    ← newQueue
   netCh   ← newTChan
   win     ← atomically $ newTVar Nothing
-  let env = Env { envEventQ = eventQ
-                , envInpQ   = inpQ
-                , envInpCh  = inputCh
-                , envNetQ   = netQ
-                , envNetCh  = netCh
-                , envWindow = win }
+  let env = Env { envEventQ   = eventQ
+                , envInpQ     = inpQ
+                , envInpCh    = inputCh
+                , envNetQ     = netQ
+                , envNetCh    = netCh
+                , envWindow   = win }
   envChan ← atomically $ newTVar env
   return (envChan, env)
 
@@ -53,13 +53,16 @@ initState _   = do
       is  = initInpState
   lf ← Logger.runStdoutLoggingT $ Logger.LoggingT pure
   st ← getSystemTime
-  atomically $ newTVar State { stStatus  = ref
-                             , stLogFunc = lf
-                             , stWindow  = Nothing
-                             , stInput   = is
-                             , stStartT  = st
-                             , stFPS     = FPS 60.0 60
-                             , stTick    = Nothing }
+  atomically $ newTVar State { stStatus   = ref
+                             , stLogFunc  = lf
+                             , stWindow   = Nothing
+                             , stInput    = is
+                             , stStartT   = st
+                             , stFPS      = FPS 60.0 60
+                             , stTick     = Nothing
+                             , stInstance = Nothing
+                             , stDebugMsg = Nothing
+                             }
 
 -- | initial empty input state
 initInpState ∷ InputState

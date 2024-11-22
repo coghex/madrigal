@@ -13,6 +13,8 @@ import Sign.Except ( ProgExcept )
 import Sign.Queue ( Queue, TChan )
 import Sign.Var ( TVar )
 import qualified Vulk.GLFW as GLFW
+import qualified Vulkan.Core10 as VK
+import qualified Vulkan.Extensions.Handles as VK
 
 -- | specific utility actions
 data ProgResult = ProgSuccess | ProgError deriving (Show, Eq)
@@ -20,13 +22,13 @@ data ProgResult = ProgSuccess | ProgError deriving (Show, Eq)
 data LoopControl = ContinueLoop | AbortLoop deriving (Show, Eq)
 
 -- | env holds only pointers
-data Env = Env { envEventQ ∷ Queue Event
-               , envInpQ   ∷ Queue InputAct
-               , envInpCh  ∷ TChan TState
-               , envNetQ   ∷ Queue NetAction
-               , envNetCh  ∷ TChan TState
-               -- only use this one for reads i think
-               , envWindow ∷ TVar (Maybe GLFW.Window) }
+data Env = Env { envEventQ   ∷ Queue Event
+               , envInpQ     ∷ Queue InputAct
+               , envInpCh    ∷ TChan TState
+               , envNetQ     ∷ Queue NetAction
+               , envNetCh    ∷ TChan TState
+               -- only use these ones for reads i think
+               , envWindow   ∷ TVar (Maybe GLFW.Window) }
 
 data State = State { stStatus   ∷ ProgExcept
                    , stLogFunc  ∷ Logger.Loc → Logger.LogSource
@@ -36,7 +38,9 @@ data State = State { stStatus   ∷ ProgExcept
                    , stInput    ∷ !InputState
                    , stStartT   ∷ !SystemTime
                    , stFPS      ∷ !FPS
-                   , stTick     ∷ !(Maybe Double) }
+                   , stTick     ∷ !(Maybe Double)
+                   , stInstance ∷ Maybe VK.Instance
+                   , stDebugMsg ∷ Maybe VK.DebugUtilsMessengerEXT }
 
 -- | input state for the main thread only
 data InputState = InputState { inpStatus ∷ ISStatus

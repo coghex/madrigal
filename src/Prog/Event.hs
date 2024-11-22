@@ -21,6 +21,7 @@ import Sign.Data ( Event(..), LogLevel(..), SysAction(..)
 import Sign.Except ( ExType(ExVulk) )
 import Sign.Queue ( tryReadQueue, writeQueue )
 import Sign.Var ( atomically, modifyTVar' )
+import Vulk.Instance ( destroyVulkanInstance )
 
 -- | reads event channel, then exectutes events recursively
 processEvents ∷ Prog ε σ ()
@@ -39,6 +40,7 @@ processEvent event = case event of
   -- this bit only parses glfw errors
   (EventError err str) → do
     st ← get
+    destroyVulkanInstance
     _  ← logExcept err ExVulk str
     case stWindow st of
       Just win → liftIO $ GLFW.setWindowShouldClose win True
@@ -54,6 +56,7 @@ processEvent event = case event of
   -- this will exit the game
   (EventSys SysExit) → do
     st ← get
+    destroyVulkanInstance
     case stWindow st of
       Just win → liftIO $ GLFW.setWindowShouldClose win True
       Nothing  → liftIO exitSuccess

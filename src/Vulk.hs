@@ -20,7 +20,8 @@ import qualified Data.ByteString as BS
 import Data.List ( partition )
 import Data.Foldable ( toList, for_ )
 import qualified Data.Text                         as T
-import           Data.Text.Encoding
+import Data.Text.Encoding
+import Data.Word
 import Say
 import Net ( networkThread )
 import Net.Data ( NetAction(..), NetServiceType(..) )
@@ -41,6 +42,8 @@ import           Vulkan.CStruct.Extends
 import Vulkan.Extensions.VK_EXT_debug_utils
 import Vulkan.Extensions.VK_EXT_validation_features
 import Vulkan.Extensions.VK_KHR_portability_enumeration
+import Vulkan.Extensions.VK_KHR_surface
+import Vulkan.Extensions.VK_KHR_swapchain
 import Vulkan.Core10
 import qualified Vulkan.Core10.DeviceInitialization as DI
 import Vulkan.Zero
@@ -53,9 +56,7 @@ runVulk = do
   window ← initGLFWWindow 800 600 "madrigal" windowSizeChanged
   modify $ \s → s { stWindow = Just window }
 
-  instCI   ← vulkInstanceCreateInfo
-  vulkInst ← createInstance instCI Nothing
-  _ ← destroyInstance vulkInst Nothing
+  VulkanWindow {..} ← withVulkWindow window "madrigal" 800 600
 
   env ← ask
   liftIO $ atomically $ writeTVar (envWindow env) $ Just window

@@ -14,6 +14,7 @@ import Control.Monad.IO.Class ( MonadIO(..) )
 import Control.Monad.Error.Class ( MonadError(..) )
 import Control.Monad.Reader.Class ( MonadReader(..) )
 import Control.Monad.State.Class ( MonadState(..), gets )
+import Control.Monad.Trans.Class (lift)
 import qualified Control.Monad.Logger.CallStack as Logger
 import Data.Tuple (swap)
 import Sign.Except ( ProgExcept )

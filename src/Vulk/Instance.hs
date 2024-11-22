@@ -21,18 +21,60 @@ import           Data.Text.Encoding
 import Say
 import Prog ( Prog, MonadIO(liftIO), MonadReader(ask) )
 import Prog.Data ( Env(..), State(..), LoopControl(..) )
+import Prog.Util ( logInfo )
 import qualified Vulk.GLFW as GLFW
 import           Vulkan.CStruct.Extends
 import Vulkan.Extensions.VK_EXT_debug_utils
 import Vulkan.Extensions.VK_EXT_validation_features
 import Vulkan.Extensions.VK_KHR_portability_enumeration
+import Vulkan.CStruct.Extends
 import Vulkan.Core10
 import qualified Vulkan.Core10.DeviceInitialization as DI
 import Vulkan.Zero
 
-vulkInstanceCreateInfo ∷ Prog ε σ ( InstanceCreateInfo
-                                    '[DebugUtilsMessengerCreateInfoEXT
-                                     , ValidationFeaturesEXT] )
+data VulkanWindow = VulkanWindow
+  { vwGLFWWindow               :: GLFW.Window
+--  , vwDevice                   :: Device
+--  , vwSurface                  :: SurfaceKHR
+--  , vwSwapchain                :: SwapchainKHR
+--  , vwExtent                   :: Extent2D
+--  , vwFormat                   :: Format
+--  , vwImageViews               :: V.Vector ImageView
+--  , vwGraphicsQueue            :: Queue
+--  , vwGraphicsQueueFamilyIndex :: Word32
+--  , vwPresentQueue             :: Queue
+  }
+
+withVulkWindow ∷ GLFW.Window → T.Text → Int → Int → Prog ε σ VulkanWindow
+withVulkWindow window name width height = do
+  instCI   ← vulkInstanceCreateInfo
+  vulkInst ← createInstance instCI Nothing
+  debugmsg ← createDebugUtilsMessengerEXT vulkInst debugUtilsMessengerCreateInfo
+                                        Nothing
+  --submitDebugUtilsMessageEXT vulkInst
+  --                           DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+  --                           DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+  --                           zero { message = "Debug Message Text" }
+  modify $ \s → s { stInstance = Just vulkInst
+                  , stDebugMsg = Just debugmsg }
+  pure $ VulkanWindow window
+
+destroyVulkanInstance ∷ Prog ε σ ()
+destroyVulkanInstance = do
+  logInfo "cleaning up..."
+  inst ← gets stInstance
+  debugMsg ← gets stDebugMsg
+  case inst of
+    Nothing → return ()
+    Just i0 → do
+      case debugMsg of
+        Nothing  → return ()
+        Just dm0 → destroyDebugUtilsMessengerEXT i0 dm0 Nothing
+      destroyInstance i0 Nothing
+
+vulkInstanceCreateInfo ∷ MonadIO m ⇒ m ( InstanceCreateInfo
+                                         '[DebugUtilsMessengerCreateInfoEXT
+                                         , ValidationFeaturesEXT] )
 vulkInstanceCreateInfo = do
   glfwReqExts ← liftIO $ traverse BS.packCString =<< GLFW.getRequiredInstanceExtensions
   let glfwReqExts' = KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME : glfwReqExts
@@ -107,4 +149,3 @@ nameObject :: (HasObjectType a, MonadIO m) => Device -> a -> BS.ByteString -> m 
 nameObject device object name = setDebugUtilsObjectNameEXT
   device
   (uncurry DebugUtilsObjectNameInfoEXT (objectTypeAndHandle object) (Just name))
-

@@ -93,6 +93,7 @@ executable madrigal
                  , containers
                  , filepath
                  , GLFW-b
+                 , managed
                  , monad-logger
                  , mtl
                  , network
@@ -100,6 +101,7 @@ executable madrigal
                  , stm
                  , time
                  , text
+                 , transformers
                  , vector
                  , vulkan
                  , vulkan-utils
