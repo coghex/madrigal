@@ -40,7 +40,8 @@ data State = State { stStatus   ∷ ProgExcept
                    , stFPS      ∷ !FPS
                    , stTick     ∷ !(Maybe Double)
                    , stInstance ∷ Maybe VK.Instance
-                   , stDebugMsg ∷ Maybe VK.DebugUtilsMessengerEXT }
+                   , stDebugMsg ∷ Maybe VK.DebugUtilsMessengerEXT
+                   , stSurface  ∷ Maybe VK.SurfaceKHR }
 
 -- | input state for the main thread only
 data InputState = InputState { inpStatus ∷ ISStatus

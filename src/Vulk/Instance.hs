@@ -18,14 +18,18 @@ import Data.List ( partition )
 import Data.Foldable ( toList, for_ )
 import qualified Data.Text                         as T
 import           Data.Text.Encoding
+import           Foreign.Ptr ( castPtr, nullPtr )
 import Say
-import Prog ( Prog, MonadIO(liftIO), MonadReader(ask) )
+import Prog ( Prog, MonadIO(liftIO), MonadReader(ask), MonadState(get) )
 import Prog.Data ( Env(..), State(..), LoopControl(..) )
-import Prog.Util ( logInfo )
+import Prog.Util ( logInfo, allocResource )
+import Prog.Foreign ( allocaPeek )
+import Vulk.Foreign
 import qualified Vulk.GLFW as GLFW
 import           Vulkan.CStruct.Extends
 import Vulkan.Extensions.VK_EXT_debug_utils
 import Vulkan.Extensions.VK_EXT_validation_features
+import Vulkan.Extensions.VK_KHR_surface
 import Vulkan.Extensions.VK_KHR_portability_enumeration
 import Vulkan.CStruct.Extends
 import Vulkan.Core10
@@ -45,32 +49,42 @@ data VulkanWindow = VulkanWindow
 --  , vwPresentQueue             :: Queue
   }
 
+createSurf ∷ Instance → GLFW.Window → Prog ε σ SurfaceKHR
+createSurf vulkInst window = allocaPeek $ runVk ∘ GLFW.createWindowSurface
+                               (castPtr (instanceHandle vulkInst))
+                               window nullPtr
+
 withVulkWindow ∷ GLFW.Window → T.Text → Int → Int → Prog ε σ VulkanWindow
 withVulkWindow window name width height = do
   instCI   ← vulkInstanceCreateInfo
   vulkInst ← createInstance instCI Nothing
   debugmsg ← createDebugUtilsMessengerEXT vulkInst debugUtilsMessengerCreateInfo
                                         Nothing
-  --submitDebugUtilsMessageEXT vulkInst
-  --                           DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
-  --                           DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
-  --                           zero { message = "Debug Message Text" }
+  submitDebugUtilsMessageEXT vulkInst
+                             DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+                             DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+                             zero { message = "Vulkan Debugging Started..." }
+  surface ← createSurf vulkInst window
   modify $ \s → s { stInstance = Just vulkInst
-                  , stDebugMsg = Just debugmsg }
+                  , stDebugMsg = Just debugmsg
+                  , stSurface  = Just surface }
   pure $ VulkanWindow window
 
 destroyVulkanInstance ∷ Prog ε σ ()
 destroyVulkanInstance = do
   logInfo "cleaning up..."
-  inst ← gets stInstance
-  debugMsg ← gets stDebugMsg
-  case inst of
+  State {..} ← get
+  case stInstance of
     Nothing → return ()
     Just i0 → do
-      case debugMsg of
+      case stDebugMsg of
         Nothing  → return ()
         Just dm0 → destroyDebugUtilsMessengerEXT i0 dm0 Nothing
+      case stSurface of
+        Nothing → return ()
+        Just s0 → destroySurfaceKHR i0 s0 Nothing
       destroyInstance i0 Nothing
+
 
 vulkInstanceCreateInfo ∷ MonadIO m ⇒ m ( InstanceCreateInfo
                                          '[DebugUtilsMessengerCreateInfoEXT

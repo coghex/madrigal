@@ -34,6 +34,7 @@ executable madrigal
                    Prog
                    Prog.Data
                    Prog.Event
+                   Prog.Foreign
                    Prog.Init
                    Prog.Input
                    Prog.KeyEvent
@@ -46,6 +47,7 @@ executable madrigal
                    Vulk
                    Vulk.Callback
                    Vulk.Data
+                   Vulk.Foreign
                    Vulk.GLFW
                    Vulk.Instance
                    Vulk.VulkGLFW

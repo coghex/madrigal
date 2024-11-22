@@ -62,6 +62,7 @@ initState _   = do
                              , stTick     = Nothing
                              , stInstance = Nothing
                              , stDebugMsg = Nothing
+                             , stSurface  = Nothing
                              }
 
 -- | initial empty input state
