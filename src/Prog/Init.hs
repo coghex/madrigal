@@ -65,6 +65,7 @@ initState _   = do
                              , stSurface   = Nothing
                              , stDevice    = Nothing
                              , stSwapchain = Nothing
+                             , stImgViews  = Nothing
                              }
 
 -- | initial empty input state

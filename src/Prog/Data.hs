@@ -6,6 +6,7 @@ import Prelude()
 import UPrelude
 import qualified Control.Monad.Logger.CallStack as Logger
 import Data.Time.Clock.System ( SystemTime )
+import qualified Data.Vector as V
 import Data ( FPS(..), KeyFunc(..), Key(..) )
 import Net.Data ( NetAction(..) )
 import Sign.Data ( Event, TState )
@@ -43,7 +44,8 @@ data State = State { stStatus    ∷ ProgExcept
                    , stDebugMsg  ∷ Maybe VK.DebugUtilsMessengerEXT
                    , stSurface   ∷ Maybe VK.SurfaceKHR
                    , stDevice    ∷ Maybe VK.Device
-                   , stSwapchain ∷ Maybe VK.SwapchainKHR }
+                   , stSwapchain ∷ Maybe VK.SwapchainKHR
+                   , stImgViews  ∷ Maybe (V.Vector VK.ImageView) }
 
 -- | input state for the main thread only
 data InputState = InputState { inpStatus ∷ ISStatus

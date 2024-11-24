@@ -17,8 +17,10 @@ import qualified Data.ByteString as BS
 import Data.List ( partition )
 import Data.Foldable ( toList, for_ )
 import qualified Data.Text                         as T
-import           Data.Text.Encoding
-import           Foreign.Ptr ( castPtr, nullPtr )
+import Data.Text.Encoding
+import Data.Traversable ( for )
+import Data.Word ( Word32 )
+import Foreign.Ptr ( castPtr, nullPtr )
 import Say
 import Prog ( Prog, MonadIO(liftIO), MonadReader(ask), MonadState(get) )
 import Prog.Data ( Env(..), State(..), LoopControl(..) )
@@ -41,15 +43,15 @@ import Vulkan.Zero
 
 data VulkanWindow = VulkanWindow
   { vwGLFWWindow               :: GLFW.Window
---  , vwDevice                   :: Device
---  , vwSurface                  :: SurfaceKHR
---  , vwSwapchain                :: SwapchainKHR
---  , vwExtent                   :: Extent2D
---  , vwFormat                   :: Format
---  , vwImageViews               :: V.Vector ImageView
---  , vwGraphicsQueue            :: Queue
---  , vwGraphicsQueueFamilyIndex :: Word32
---  , vwPresentQueue             :: Queue
+  , vwDevice                   :: Device
+  , vwSurface                  :: SurfaceKHR
+  , vwSwapchain                :: SwapchainKHR
+  , vwExtent                   :: Extent2D
+  , vwFormat                   :: Format
+  , vwImageViews               :: V.Vector ImageView
+  , vwGraphicsQueue            :: Queue
+  , vwGraphicsQueueFamilyIndex :: Word32
+  , vwPresentQueue             :: Queue
   }
 
 createSurf ∷ Instance → GLFW.Window → Prog ε σ SurfaceKHR
@@ -68,13 +70,31 @@ withVulkWindow window name width height = do
                              DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
                              zero { message = "Vulkan Debugging Started..." }
   surface ← createSurf vulkInst window
-  (dev,graphcisQueue,graphicsQueueFamilyIndex,presentQueue,swapchainFormat,swapchainExtent,swapchain) ← createGraphicalDevice vulkInst surface
+  (dev,graphicsQueue,graphicsQueueFamilyIndex,presentQueue,swapchainFormat,swapchainExtent,swapchain) ← createGraphicalDevice vulkInst surface
+  (_, images) ← getSwapchainImagesKHR dev swapchain
+  let imageViewCreateInfo i = zero
+        { image            = i
+        , viewType         = IMAGE_VIEW_TYPE_2D
+        , format           = swapchainFormat
+        , components       = zero { r = COMPONENT_SWIZZLE_IDENTITY
+                                  , g = COMPONENT_SWIZZLE_IDENTITY
+                                  , b = COMPONENT_SWIZZLE_IDENTITY
+                                  , a = COMPONENT_SWIZZLE_IDENTITY }
+        , subresourceRange = zero { aspectMask     = IMAGE_ASPECT_COLOR_BIT
+                                  , baseMipLevel   = 0
+                                  , levelCount     = 1
+                                  , baseArrayLayer = 0
+                                  , layerCount     = 1 } }
+  imageViews ← for images
+    $ \i → createImageView dev (imageViewCreateInfo i) Nothing
   modify $ \s → s { stInstance  = Just vulkInst
                   , stDebugMsg  = Just debugmsg
                   , stSurface   = Just surface
                   , stDevice    = Just dev
-                  , stSwapchain = Just swapchain }
-  pure $ VulkanWindow window
+                  , stSwapchain = Just swapchain
+                  , stImgViews  = Just imageViews }
+  pure $ VulkanWindow window dev surface swapchain swapchainExtent swapchainFormat
+                      imageViews graphicsQueue graphicsQueueFamilyIndex presentQueue
 
 destroyVulkanInstance ∷ Prog ε σ ()
 destroyVulkanInstance = do
@@ -89,6 +109,16 @@ destroyVulkanInstance = do
       case stDevice of
         Nothing → return ()
         Just d0 → do
+          case stImgViews of
+            Nothing   → return ()
+            Just ivs0 → destroyImageViews ivs0
+              where destroyImageViews ∷ V.Vector ImageView → Prog ε σ ()
+                    destroyImageViews ivs
+                      | V.null ivs = return ()
+                      | otherwise  = do
+                          destroyImageView d0 (V.head ivs) Nothing
+                          destroyImageViews $ V.tail ivs
+
           case stSwapchain of
             Nothing  → return ()
             Just sw0 → destroySwapchainKHR d0 sw0 Nothing
