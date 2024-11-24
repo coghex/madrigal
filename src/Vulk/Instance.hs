@@ -24,12 +24,15 @@ import Prog ( Prog, MonadIO(liftIO), MonadReader(ask), MonadState(get) )
 import Prog.Data ( Env(..), State(..), LoopControl(..) )
 import Prog.Util ( logInfo, allocResource )
 import Prog.Foreign ( allocaPeek )
+import Vulk.Device ( createGraphicalDevice )
 import Vulk.Foreign
 import qualified Vulk.GLFW as GLFW
 import           Vulkan.CStruct.Extends
 import Vulkan.Extensions.VK_EXT_debug_utils
 import Vulkan.Extensions.VK_EXT_validation_features
+import Vulkan.Extensions.VK_KHR_get_physical_device_properties2
 import Vulkan.Extensions.VK_KHR_surface
+import Vulkan.Extensions.VK_KHR_swapchain
 import Vulkan.Extensions.VK_KHR_portability_enumeration
 import Vulkan.CStruct.Extends
 import Vulkan.Core10
@@ -65,9 +68,12 @@ withVulkWindow window name width height = do
                              DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
                              zero { message = "Vulkan Debugging Started..." }
   surface ← createSurf vulkInst window
-  modify $ \s → s { stInstance = Just vulkInst
-                  , stDebugMsg = Just debugmsg
-                  , stSurface  = Just surface }
+  (dev,graphcisQueue,graphicsQueueFamilyIndex,presentQueue,swapchainFormat,swapchainExtent,swapchain) ← createGraphicalDevice vulkInst surface
+  modify $ \s → s { stInstance  = Just vulkInst
+                  , stDebugMsg  = Just debugmsg
+                  , stSurface   = Just surface
+                  , stDevice    = Just dev
+                  , stSwapchain = Just swapchain }
   pure $ VulkanWindow window
 
 destroyVulkanInstance ∷ Prog ε σ ()
@@ -80,6 +86,13 @@ destroyVulkanInstance = do
       case stDebugMsg of
         Nothing  → return ()
         Just dm0 → destroyDebugUtilsMessengerEXT i0 dm0 Nothing
+      case stDevice of
+        Nothing → return ()
+        Just d0 → do
+          case stSwapchain of
+            Nothing  → return ()
+            Just sw0 → destroySwapchainKHR d0 sw0 Nothing
+          destroyDevice d0 Nothing
       case stSurface of
         Nothing → return ()
         Just s0 → destroySurfaceKHR i0 s0 Nothing
@@ -91,7 +104,8 @@ vulkInstanceCreateInfo ∷ MonadIO m ⇒ m ( InstanceCreateInfo
                                          , ValidationFeaturesEXT] )
 vulkInstanceCreateInfo = do
   glfwReqExts ← liftIO $ traverse BS.packCString =<< GLFW.getRequiredInstanceExtensions
-  let glfwReqExts' = KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME : glfwReqExts
+  let glfwReqExts'  = KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME : glfwReqExts
+      glfwReqExts'' = KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME : glfwReqExts'
   availableExtensionNames <-
     toList
     .   fmap extensionName
@@ -102,7 +116,7 @@ vulkInstanceCreateInfo = do
 
   let requiredLayers     = []
       optionalLayers     = ["VK_LAYER_KHRONOS_validation"]
-      requiredExtensions = [EXT_DEBUG_UTILS_EXTENSION_NAME] <> glfwReqExts'
+      requiredExtensions = [EXT_DEBUG_UTILS_EXTENSION_NAME] <> glfwReqExts''
       optionalExtensions = [EXT_VALIDATION_FEATURES_EXTENSION_NAME]
   extensions ← partitionOptReq "extension"
                                availableExtensionNames

@@ -4,7 +4,10 @@ module Vulk.Data where
 import Prelude()
 import UPrelude
 import Sign.Var ( TVar )
+import Data.Word ( Word32 )
+import Foreign.Ptr ( Ptr )
 import qualified Vulk.GLFW as GLFW
+import qualified Vulkan.Core10 as VK
 
 -- | possible results of a paracletus evaluation
 data VulkResult = VulkSuccess | VulkError | GLFWError deriving (Show, Eq)
@@ -15,3 +18,13 @@ data VulkanLoopData = VulkanLoopData
        , framCount         ∷ TVar Int
        , currentSec        ∷ TVar Int
        }
+
+-- | we are only using one device, so queues are
+--   only relevant to pass data around
+data DevQueues = DevQueues { graphicsQueue  ∷ VK.Queue
+                           , presentQueue   ∷ VK.Queue
+                           , qFamIndices    ∷ Ptr Word32
+                           , graphicsFamIdx ∷ Word32
+                           , presentFamIdx  ∷ Word32
+                           } deriving (Eq, Show)
+

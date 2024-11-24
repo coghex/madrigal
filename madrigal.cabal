@@ -47,6 +47,7 @@ executable madrigal
                    Vulk
                    Vulk.Callback
                    Vulk.Data
+                   Vulk.Device
                    Vulk.Foreign
                    Vulk.GLFW
                    Vulk.Instance

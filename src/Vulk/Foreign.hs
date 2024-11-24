@@ -6,11 +6,13 @@
 module Vulk.Foreign where
 import Prelude()
 import UPrelude
-import Control.Monad (when)
-import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+import Control.Monad ( when )
+import Control.Concurrent.MVar ( newEmptyMVar, putMVar, takeMVar )
+import Data.Word ( Word32 )
 import qualified Foreign.Marshal.Array as Foreign
-import Foreign.Storable (Storable)
+import Foreign.Storable ( Storable )
 import qualified Foreign.Storable as Storable
+import Foreign.Ptr ( Ptr )
 import GHC.Stack ( HasCallStack, prettyCallStack, callStack )
 import Sign.Except ( ProgExcept(ProgExcept), ExType(ExVulk) )
 import Prog
