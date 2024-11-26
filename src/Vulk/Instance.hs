@@ -109,6 +109,9 @@ destroyVulkanInstance = do
       case stDevice of
         Nothing → return ()
         Just d0 → do
+          case stRenderPass of
+            Nothing  → return ()
+            Just rp0 → destroyRenderPass d0 rp0 Nothing
           case stImgViews of
             Nothing   → return ()
             Just ivs0 → destroyImageViews ivs0

@@ -34,6 +34,7 @@ import Sign.Data ( TState(TStart) )
 import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
 import Vulk.Data ( VulkanLoopData(..) )
+import Vulk.Device ( createRenderP )
 import Vulk.Instance
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
@@ -57,6 +58,7 @@ runVulk = do
   modify $ \s → s { stWindow = Just window }
 
   VulkanWindow {..} ← withVulkWindow window "madrigal" 800 600
+  renderPass        ← createRenderP vwDevice vwFormat
 
   env ← ask
   liftIO $ atomically $ writeTVar (envWindow env) $ Just window

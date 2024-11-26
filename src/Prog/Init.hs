@@ -53,19 +53,20 @@ initState _   = do
       is  = initInpState
   lf ← Logger.runStdoutLoggingT $ Logger.LoggingT pure
   st ← getSystemTime
-  atomically $ newTVar State { stStatus    = ref
-                             , stLogFunc   = lf
-                             , stWindow    = Nothing
-                             , stInput     = is
-                             , stStartT    = st
-                             , stFPS       = FPS 60.0 60
-                             , stTick      = Nothing
-                             , stInstance  = Nothing
-                             , stDebugMsg  = Nothing
-                             , stSurface   = Nothing
-                             , stDevice    = Nothing
-                             , stSwapchain = Nothing
-                             , stImgViews  = Nothing
+  atomically $ newTVar State { stStatus     = ref
+                             , stLogFunc    = lf
+                             , stWindow     = Nothing
+                             , stInput      = is
+                             , stStartT     = st
+                             , stFPS        = FPS 60.0 60
+                             , stTick       = Nothing
+                             , stInstance   = Nothing
+                             , stDebugMsg   = Nothing
+                             , stSurface    = Nothing
+                             , stDevice     = Nothing
+                             , stSwapchain  = Nothing
+                             , stImgViews   = Nothing
+                             , stRenderPass = Nothing
                              }
 
 -- | initial empty input state

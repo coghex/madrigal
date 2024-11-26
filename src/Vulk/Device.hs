@@ -7,6 +7,7 @@ import Prelude()
 import UPrelude
 import Control.Monad ( when, guard, (=<<) )
 import Control.Monad.Trans.Maybe
+import Control.Monad.State.Class ( modify )
 import Data.Bits ( Bits(..) )
 import qualified Data.ByteString as BS
 import Data.List ( nub )
@@ -18,6 +19,7 @@ import qualified Data.Vector as V
 import Data.Word ( Word32, Word64 )
 import System.Exit ( exitFailure )
 import Prog ( Prog, MonadIO(liftIO) )
+import Prog.Data ( State(..) )
 import Prog.Foreign ( newArrayRes )
 import Prog.Util ( isDev, logExcept, logInfo )
 import Vulk.Data ( DevQueues(..) )
@@ -164,3 +166,47 @@ windowWidth = 800
 windowHeight = 600
 (.&&.) :: Bits a => a -> a -> Bool
 x .&&. y = (/= zeroBits) (x .&. y)
+
+
+createRenderP :: Device -> Format -> Prog ε σ RenderPass
+createRenderP dev swapchainImageFormat = do
+  let
+    attachmentDescription :: AttachmentDescription
+    attachmentDescription = zero
+      { format         = swapchainImageFormat
+      , samples        = SAMPLE_COUNT_1_BIT
+      , loadOp         = ATTACHMENT_LOAD_OP_CLEAR
+      , storeOp        = ATTACHMENT_STORE_OP_STORE
+      , stencilLoadOp  = ATTACHMENT_LOAD_OP_DONT_CARE
+      , stencilStoreOp = ATTACHMENT_STORE_OP_DONT_CARE
+      , initialLayout  = IMAGE_LAYOUT_UNDEFINED
+      , finalLayout    = IMAGE_LAYOUT_PRESENT_SRC_KHR
+      }
+    subpass :: SubpassDescription
+    subpass = zero
+      { pipelineBindPoint = PIPELINE_BIND_POINT_GRAPHICS
+      , colorAttachments  =
+        [ zero { attachment = 0
+               , layout     = IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+               }
+        ]
+      }
+    subpassDependency :: SubpassDependency
+    subpassDependency = zero
+      { srcSubpass    = SUBPASS_EXTERNAL
+      , dstSubpass    = 0
+      , srcStageMask  = PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+      , srcAccessMask = zero
+      , dstStageMask  = PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+      , dstAccessMask = ACCESS_COLOR_ATTACHMENT_READ_BIT
+                          .|. ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+      }
+  rp ← createRenderPass
+    dev
+    zero { attachments  = [attachmentDescription]
+         , subpasses    = [subpass]
+         , dependencies = [subpassDependency]
+         }
+    Nothing
+  modify $ \s → s { stRenderPass = Just rp }
+  return rp
