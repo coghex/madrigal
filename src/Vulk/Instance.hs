@@ -103,23 +103,15 @@ destroyVulkanInstance = do
   case stInstance of
     Nothing → return ()
     Just i0 → do
-      case stDebugMsg of
-        Nothing  → return ()
-        Just dm0 → destroyDebugUtilsMessengerEXT i0 dm0 Nothing
+      destroyMaybe stDebugMsg $ (flip (destroyDebugUtilsMessengerEXT i0)) Nothing
       case stDevice of
         Nothing → return ()
         Just d0 → do
-          case stPipeline of
-            Nothing → return ()
-            Just p0 → destroyPipeline d0 p0 Nothing
-          case stPipelineLayout of
-            Nothing  → return ()
-            Just pl0 → destroyPipelineLayout d0 pl0 Nothing
-          destroyMaybe stFragShader $ (flip (destroyShaderModule d0)) Nothing
-          destroyMaybe stVertShader $ (flip (destroyShaderModule d0)) Nothing
-          case stRenderPass of
-            Nothing  → return ()
-            Just rp0 → destroyRenderPass d0 rp0 Nothing
+          destroyMaybe stPipeline       $ (flip (destroyPipeline       d0)) Nothing
+          destroyMaybe stPipelineLayout $ (flip (destroyPipelineLayout d0)) Nothing
+          destroyMaybe stFragShader     $ (flip (destroyShaderModule   d0)) Nothing
+          destroyMaybe stVertShader     $ (flip (destroyShaderModule   d0)) Nothing
+          destroyMaybe stRenderPass     $ (flip (destroyRenderPass     d0)) Nothing
           case stImgViews of
             Nothing   → return ()
             Just ivs0 → destroyImageViews ivs0
@@ -130,15 +122,10 @@ destroyVulkanInstance = do
                           destroyImageView d0 (V.head ivs) Nothing
                           destroyImageViews $ V.tail ivs
 
-          case stSwapchain of
-            Nothing  → return ()
-            Just sw0 → destroySwapchainKHR d0 sw0 Nothing
+          destroyMaybe stSwapchain    $ (flip (destroySwapchainKHR d0)) Nothing
           destroyDevice d0 Nothing
-      case stSurface of
-        Nothing → return ()
-        Just s0 → destroySurfaceKHR i0 s0 Nothing
+      destroyMaybe stSurface $ (flip (destroySurfaceKHR i0)) Nothing
       destroyInstance i0 Nothing
-
 destroyMaybe ∷ Maybe α → (α → Prog ε σ ()) → Prog ε σ ()
 destroyMaybe Nothing  _ = return ()
 destroyMaybe (Just a) f = f a
