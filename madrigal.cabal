@@ -51,6 +51,8 @@ executable madrigal
                    Vulk.Foreign
                    Vulk.GLFW
                    Vulk.Instance
+                   Vulk.Pipeline
+                   Vulk.Shader
                    Vulk.VulkGLFW
     -- LANGUAGE extensions used by modules in this package.
     default-extensions: DataKinds

@@ -109,6 +109,14 @@ destroyVulkanInstance = do
       case stDevice of
         Nothing → return ()
         Just d0 → do
+          case stPipeline of
+            Nothing → return ()
+            Just p0 → destroyPipeline d0 p0 Nothing
+          case stPipelineLayout of
+            Nothing  → return ()
+            Just pl0 → destroyPipelineLayout d0 pl0 Nothing
+          destroyMaybe stFragShader $ (flip (destroyShaderModule d0)) Nothing
+          destroyMaybe stVertShader $ (flip (destroyShaderModule d0)) Nothing
           case stRenderPass of
             Nothing  → return ()
             Just rp0 → destroyRenderPass d0 rp0 Nothing
@@ -131,6 +139,9 @@ destroyVulkanInstance = do
         Just s0 → destroySurfaceKHR i0 s0 Nothing
       destroyInstance i0 Nothing
 
+destroyMaybe ∷ Maybe α → (α → Prog ε σ ()) → Prog ε σ ()
+destroyMaybe Nothing  _ = return ()
+destroyMaybe (Just a) f = f a
 
 vulkInstanceCreateInfo ∷ MonadIO m ⇒ m ( InstanceCreateInfo
                                          '[DebugUtilsMessengerCreateInfoEXT

@@ -31,22 +31,26 @@ data Env = Env { envEventQ   ∷ Queue Event
                -- only use these ones for reads i think
                , envWindow   ∷ TVar (Maybe GLFW.Window) }
 
-data State = State { stStatus     ∷ ProgExcept
-                   , stLogFunc    ∷ Logger.Loc → Logger.LogSource
-                                      → Logger.LogLevel → Logger.LogStr
-                                      → IO ()
-                   , stWindow     ∷ !(Maybe GLFW.Window)
-                   , stInput      ∷ !InputState
-                   , stStartT     ∷ !SystemTime
-                   , stFPS        ∷ !FPS
-                   , stTick       ∷ !(Maybe Double)
-                   , stInstance   ∷ Maybe VK.Instance
-                   , stDebugMsg   ∷ Maybe VK.DebugUtilsMessengerEXT
-                   , stSurface    ∷ Maybe VK.SurfaceKHR
-                   , stDevice     ∷ Maybe VK.Device
-                   , stSwapchain  ∷ Maybe VK.SwapchainKHR
-                   , stImgViews   ∷ Maybe (V.Vector VK.ImageView)
-                   , stRenderPass ∷ Maybe VK.RenderPass }
+data State = State { stStatus         ∷ ProgExcept
+                   , stLogFunc        ∷ Logger.Loc → Logger.LogSource
+                                          → Logger.LogLevel → Logger.LogStr
+                                          → IO ()
+                   , stWindow         ∷ !(Maybe GLFW.Window)
+                   , stInput          ∷ !InputState
+                   , stStartT         ∷ !SystemTime
+                   , stFPS            ∷ !FPS
+                   , stTick           ∷ !(Maybe Double)
+                   , stInstance       ∷ Maybe VK.Instance
+                   , stDebugMsg       ∷ Maybe VK.DebugUtilsMessengerEXT
+                   , stSurface        ∷ Maybe VK.SurfaceKHR
+                   , stDevice         ∷ Maybe VK.Device
+                   , stSwapchain      ∷ Maybe VK.SwapchainKHR
+                   , stImgViews       ∷ Maybe (V.Vector VK.ImageView)
+                   , stRenderPass     ∷ Maybe VK.RenderPass
+                   , stFragShader     ∷ Maybe VK.ShaderModule
+                   , stVertShader     ∷ Maybe VK.ShaderModule
+                   , stPipelineLayout ∷ Maybe VK.PipelineLayout
+                   , stPipeline       ∷ Maybe VK.Pipeline }
 
 -- | input state for the main thread only
 data InputState = InputState { inpStatus ∷ ISStatus
