@@ -36,7 +36,7 @@ import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
 import Vulk.Data ( VulkanLoopData(..) )
 import Vulk.Device ( createRenderP )
 import Vulk.Instance
-import Vulk.Pipeline ( createGraphicsPipeline )
+import Vulk.Pipeline ( createGraphicsPipeline, createFramebuffers )
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
 import qualified Vulk.GLFW as GLFW
@@ -61,7 +61,9 @@ runVulk = do
   VulkanWindow {..} ← withVulkWindow window "madrigal" 800 600
   renderPass        ← createRenderP vwDevice vwFormat
   graphicsPipe      ← createGraphicsPipeline vwDevice renderPass vwExtent vwFormat
-  modify $ \s → s { stPipeline = Just graphicsPipe }
+  frameBuffers ← createFramebuffers vwDevice vwImageViews renderPass vwExtent
+  modify $ \s → s { stPipeline     = Just graphicsPipe
+                  , stFramebuffers = Just frameBuffers }
   env ← ask
   liftIO $ atomically $ writeTVar (envWindow env) $ Just window
   -- THREADS

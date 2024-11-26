@@ -7,6 +7,7 @@ import Prelude()
 import UPrelude
 import Control.Monad.State.Class ( modify )
 import Data.Bits ( (.|.) )
+import Data.Traversable ( for )
 import qualified Data.Vector as V
 import Prog ( Prog(..) )
 import Prog.Data ( State(..) )
@@ -70,3 +71,15 @@ createGraphicsPipeline dev renderPass swapchainExtent _swapchainImageFormat = do
   V.head . snd
     <$> createGraphicsPipelines dev zero [SomeStruct pipelineCreateInfo] Nothing
 
+createFramebuffers ∷ Device → V.Vector ImageView → RenderPass
+  → Extent2D → Prog ε σ (V.Vector Framebuffer)
+createFramebuffers dev imageViews renderPass Extent2D {width, height} =
+  for imageViews $ \imageView → do
+    let framebufferCreateInfo ∷ FramebufferCreateInfo '[]
+        framebufferCreateInfo = zero
+          { renderPass  = renderPass
+          , attachments = [imageView]
+          , width
+          , height
+          , layers      = 1 }
+    createFramebuffer dev framebufferCreateInfo Nothing

@@ -71,6 +71,7 @@ initState _   = do
                              , stVertShader     = Nothing
                              , stPipelineLayout = Nothing
                              , stPipeline       = Nothing
+                             , stFramebuffers   = Nothing
                              }
 
 -- | initial empty input state

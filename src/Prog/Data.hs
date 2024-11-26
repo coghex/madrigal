@@ -50,7 +50,8 @@ data State = State { stStatus         ∷ ProgExcept
                    , stFragShader     ∷ Maybe VK.ShaderModule
                    , stVertShader     ∷ Maybe VK.ShaderModule
                    , stPipelineLayout ∷ Maybe VK.PipelineLayout
-                   , stPipeline       ∷ Maybe VK.Pipeline }
+                   , stPipeline       ∷ Maybe VK.Pipeline
+                   , stFramebuffers   ∷ Maybe (V.Vector VK.Framebuffer) }
 
 -- | input state for the main thread only
 data InputState = InputState { inpStatus ∷ ISStatus

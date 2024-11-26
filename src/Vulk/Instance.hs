@@ -107,6 +107,15 @@ destroyVulkanInstance = do
       case stDevice of
         Nothing → return ()
         Just d0 → do
+          case stFramebuffers of
+            Nothing  → return ()
+            Just fb0 → destroyFramebuffers fb0
+              where destroyFramebuffers ∷ V.Vector Framebuffer → Prog ε σ ()
+                    destroyFramebuffers fbs
+                      | V.null fbs = return ()
+                      | otherwise  = do
+                          destroyFramebuffer d0 (V.head fbs) Nothing
+                          destroyFramebuffers $ V.tail fbs
           destroyMaybe stPipeline       $ (flip (destroyPipeline       d0)) Nothing
           destroyMaybe stPipelineLayout $ (flip (destroyPipelineLayout d0)) Nothing
           destroyMaybe stFragShader     $ (flip (destroyShaderModule   d0)) Nothing
