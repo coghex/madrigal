@@ -107,6 +107,14 @@ destroyVulkanInstance = do
       case stDevice of
         Nothing → return ()
         Just d0 → do
+          case stCmdBuffInfo of
+            Nothing   → return ()
+            Just cbi0 → do
+              case stCmdBuffers of
+                Nothing  → return ()
+                Just cb0 → do
+                  freeCommandBuffers d0 (commandPool cbi0) cb0
+              destroyCommandPool d0 (commandPool cbi0) Nothing
           case stFramebuffers of
             Nothing  → return ()
             Just fb0 → destroyFramebuffers fb0

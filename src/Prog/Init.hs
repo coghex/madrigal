@@ -72,6 +72,7 @@ initState _   = do
                              , stPipelineLayout = Nothing
                              , stPipeline       = Nothing
                              , stFramebuffers   = Nothing
+                             , stCmdBuffInfo    = Nothing
                              }
 
 -- | initial empty input state

@@ -46,6 +46,7 @@ executable madrigal
                    Sign.Var
                    Vulk
                    Vulk.Callback
+                   Vulk.Command
                    Vulk.Data
                    Vulk.Device
                    Vulk.Foreign
