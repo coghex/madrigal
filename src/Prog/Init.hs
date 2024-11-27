@@ -73,6 +73,7 @@ initState _   = do
                              , stPipeline       = Nothing
                              , stFramebuffers   = Nothing
                              , stCmdBuffInfo    = Nothing
+                             , stSemaphores     = Nothing
                              }
 
 -- | initial empty input state

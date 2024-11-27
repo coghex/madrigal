@@ -53,7 +53,8 @@ data State = State { stStatus         ∷ ProgExcept
                    , stPipeline       ∷ Maybe VK.Pipeline
                    , stFramebuffers   ∷ Maybe (V.Vector VK.Framebuffer)
                    , stCmdBuffInfo    ∷ Maybe VK.CommandBufferAllocateInfo
-                   , stCmdBuffers     ∷ Maybe (V.Vector VK.CommandBuffer) }
+                   , stCmdBuffers     ∷ Maybe (V.Vector VK.CommandBuffer)
+                   , stSemaphores     ∷ Maybe (VK.Semaphore, VK.Semaphore) }
 
 -- | input state for the main thread only
 data InputState = InputState { inpStatus ∷ ISStatus

@@ -14,6 +14,14 @@ import Prog.Data ( State(..) )
 import Vulkan.Core10
 import Vulkan.Zero
 
+createSemaphores ∷ Device → Prog ε σ (Semaphore, Semaphore)
+createSemaphores dev = do
+  imageAvailableSemaphore ← createSemaphore dev zero Nothing
+  renderFinishedSemaphore ← createSemaphore dev zero Nothing
+  let semaphores = (imageAvailableSemaphore, renderFinishedSemaphore)
+  modify $ \s → s { stSemaphores = Just semaphores }
+  pure semaphores
+
 createCommandBuffers ∷ Device → RenderPass → Pipeline → Word32
   → V.Vector Framebuffer → Extent2D → Prog ε σ (V.Vector CommandBuffer)
 createCommandBuffers dev renderPass graphicsPipeline graphicsQueueFamilyIndex

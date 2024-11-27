@@ -107,6 +107,11 @@ destroyVulkanInstance = do
       case stDevice of
         Nothing → return ()
         Just d0 → do
+          case stSemaphores of
+            Nothing       → return ()
+            Just (s1, s2) → do
+              destroySemaphore d0 s1 Nothing
+              destroySemaphore d0 s2 Nothing
           case stCmdBuffInfo of
             Nothing   → return ()
             Just cbi0 → do

@@ -33,7 +33,7 @@ import Prog.Util ( getTime, logInfo, loop )
 import Sign.Data ( TState(TStart) )
 import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
-import Vulk.Command ( createCommandBuffers )
+import Vulk.Command ( createCommandBuffers, createSemaphores )
 import Vulk.Data ( VulkanLoopData(..) )
 import Vulk.Device ( createRenderP )
 import Vulk.Instance
@@ -65,7 +65,7 @@ runVulk = do
   framebuffers      ← createFramebuffers vwDevice vwImageViews renderPass vwExtent
   commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe
                         vwGraphicsQueueFamilyIndex framebuffers vwExtent
-  --(imageAvaialableSemaphore, renderFinishedSemaphore) ← createSemaphores
+  (imageAvaialableSemaphore, renderFinishedSemaphore) ← createSemaphores vwDevice
   modify $ \s → s { stPipeline     = Just graphicsPipe
                   , stFramebuffers = Just framebuffers }
   env ← ask
