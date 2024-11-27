@@ -24,7 +24,7 @@ import Foreign.Ptr ( castPtr, nullPtr )
 import Say
 import Prog ( Prog, MonadIO(liftIO), MonadReader(ask), MonadState(get) )
 import Prog.Data ( Env(..), State(..), LoopControl(..) )
-import Prog.Util ( logInfo, allocResource )
+import Prog.Util ( logInfo, allocResource, logDebug )
 import Prog.Foreign ( allocaPeek )
 import Vulk.Device ( createGraphicalDevice )
 import Vulk.Foreign
@@ -98,11 +98,11 @@ withVulkWindow window name width height = do
 
 destroyVulkanInstance ∷ Prog ε σ ()
 destroyVulkanInstance = do
-  logInfo "cleaning up..."
   State {..} ← get
   case stInstance of
     Nothing → return ()
     Just i0 → do
+      logDebug "destroying debug utils"
       destroyMaybe stDebugMsg $ (flip (destroyDebugUtilsMessengerEXT i0)) Nothing
       case stDevice of
         Nothing → return ()
@@ -110,6 +110,7 @@ destroyVulkanInstance = do
           case stSemaphores of
             Nothing       → return ()
             Just (s1, s2) → do
+              logDebug "destroying semaphores"
               destroySemaphore d0 s1 Nothing
               destroySemaphore d0 s2 Nothing
           case stCmdBuffInfo of
@@ -118,35 +119,48 @@ destroyVulkanInstance = do
               case stCmdBuffers of
                 Nothing  → return ()
                 Just cb0 → do
+                  logDebug "destroying command buffers"
                   freeCommandBuffers d0 (commandPool cbi0) cb0
+              logDebug "destroying command pool"
               destroyCommandPool d0 (commandPool cbi0) Nothing
           case stFramebuffers of
             Nothing  → return ()
-            Just fb0 → destroyFramebuffers fb0
-              where destroyFramebuffers ∷ V.Vector Framebuffer → Prog ε σ ()
-                    destroyFramebuffers fbs
-                      | V.null fbs = return ()
-                      | otherwise  = do
-                          destroyFramebuffer d0 (V.head fbs) Nothing
-                          destroyFramebuffers $ V.tail fbs
+            Just fb0 → do
+              logDebug "destroying framebuffers"
+              destroyFramebuffers fb0
+                where destroyFramebuffers ∷ V.Vector Framebuffer → Prog ε σ ()
+                      destroyFramebuffers fbs
+                        | V.null fbs = return ()
+                        | otherwise  = do
+                            destroyFramebuffer d0 (V.head fbs) Nothing
+                            destroyFramebuffers $ V.tail fbs
+          logDebug "destroying pipeline"
           destroyMaybe stPipeline       $ (flip (destroyPipeline       d0)) Nothing
+          logDebug "destroying pipeline layout"
           destroyMaybe stPipelineLayout $ (flip (destroyPipelineLayout d0)) Nothing
+          logDebug "destroying shaders"
           destroyMaybe stFragShader     $ (flip (destroyShaderModule   d0)) Nothing
           destroyMaybe stVertShader     $ (flip (destroyShaderModule   d0)) Nothing
+          logDebug "destroying render pass"
           destroyMaybe stRenderPass     $ (flip (destroyRenderPass     d0)) Nothing
           case stImgViews of
             Nothing   → return ()
-            Just ivs0 → destroyImageViews ivs0
-              where destroyImageViews ∷ V.Vector ImageView → Prog ε σ ()
-                    destroyImageViews ivs
-                      | V.null ivs = return ()
-                      | otherwise  = do
-                          destroyImageView d0 (V.head ivs) Nothing
-                          destroyImageViews $ V.tail ivs
-
+            Just ivs0 → do
+              logDebug "destroying image views"
+              destroyImageViews ivs0
+                where destroyImageViews ∷ V.Vector ImageView → Prog ε σ ()
+                      destroyImageViews ivs
+                        | V.null ivs = return ()
+                        | otherwise  = do
+                            destroyImageView d0 (V.head ivs) Nothing
+                            destroyImageViews $ V.tail ivs
+          logDebug "destroying swapchain"
           destroyMaybe stSwapchain    $ (flip (destroySwapchainKHR d0)) Nothing
+          logDebug "destroying device"
           destroyDevice d0 Nothing
+      logDebug "destroying surface"
       destroyMaybe stSurface $ (flip (destroySurfaceKHR i0)) Nothing
+      logDebug "destroying instance"
       destroyInstance i0 Nothing
 destroyMaybe ∷ Maybe α → (α → Prog ε σ ()) → Prog ε σ ()
 destroyMaybe Nothing  _ = return ()

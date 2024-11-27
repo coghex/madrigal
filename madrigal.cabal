@@ -20,6 +20,7 @@ extra-doc-files: CHANGELOG.md
 
 common warnings
     ghc-options: -Wall -threaded
+    cpp-options: -DDEVELOPMENT
 
 executable madrigal
     -- Import common warning flags.

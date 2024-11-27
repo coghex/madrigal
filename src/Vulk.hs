@@ -36,6 +36,7 @@ import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
 import Vulk.Command ( createCommandBuffers, createSemaphores )
 import Vulk.Data ( VulkanLoopData(..) )
 import Vulk.Device ( createRenderP )
+import Vulk.Foreign ( runVk )
 import Vulk.Instance
 import Vulk.Pipeline ( createGraphicsPipeline, createFramebuffers )
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
@@ -65,7 +66,8 @@ runVulk = do
   framebuffers      ← createFramebuffers vwDevice vwImageViews renderPass vwExtent
   commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe
                         vwGraphicsQueueFamilyIndex framebuffers vwExtent
-  (imageAvaialableSemaphore, renderFinishedSemaphore) ← createSemaphores vwDevice
+  (imageAvailableSemaphore, renderFinishedSemaphore) ← createSemaphores vwDevice
+  liftIO $ GLFW.showWindow vwGLFWWindow
   modify $ \s → s { stPipeline     = Just graphicsPipe
                   , stFramebuffers = Just framebuffers }
   env ← ask
@@ -85,14 +87,32 @@ runVulk = do
       firstTick ← liftIO $ getCurTick
       beforeSwapchainCreation
       vulkLoop window
-        $ VulkanLoopData windowSizeChanged frameCount currentSec
+        $ VulkanLoopData windowSizeChanged frameCount currentSec vwDevice vwSwapchain vwGraphicsQueue vwPresentQueue imageAvailableSemaphore renderFinishedSemaphore commandBuffers
+
     logInfo "i am madrigal"
 
 vulkLoop ∷ GLFW.Window → VulkanLoopData → Prog ε σ LoopControl
-vulkLoop window (VulkanLoopData windowSizeChanged frameCount currentSec) = do
+vulkLoop window (VulkanLoopData windowSizeChanged frameCount currentSec dev swapchain graphicsQueue presentQueue imageAvailableSemaphore renderFinishedSemaphore commandBuffers) = do
   sizeChanged ← liftIO $ atomically $ readTVar windowSizeChanged
   shouldExit ← glfwLoop window $ do
     env ← ask
+
+    (_, imageIndex) ← acquireNextImageKHR dev swapchain maxBound imageAvailableSemaphore zero
+    let submitInfo = zero
+          { waitSemaphores   = [imageAvailableSemaphore]
+          , waitDstStageMask = [PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT]
+          , commandBuffers   = [ commandBufferHandle
+                                 $   commandBuffers
+                                 V.! fromIntegral imageIndex ]
+          , signalSemaphores = [renderFinishedSemaphore] }
+        presentInfo = zero { waitSemaphores = [renderFinishedSemaphore]
+                           , swapchains     = [swapchain]
+                           , imageIndices   = [imageIndex] }
+    queueSubmit graphicsQueue [SomeStruct submitInfo] zero
+    _ ← queuePresentKHR presentQueue presentInfo
+    queueWaitIdle graphicsQueue
+    deviceWaitIdle dev
+
     processEvents
     seconds ← getTime
     cur ← liftIO $ atomically $ readTVar currentSec
