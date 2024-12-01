@@ -1,6 +1,7 @@
 module Net.Data where
 import Prelude()
 import UPrelude
+import System.IO ( Handle(..) )
 
 -- | a collection of data refering to the state of network traffic
 data NetState       = NetState { netStateServices ∷ [NetService]
@@ -11,6 +12,7 @@ data NetService     = NetService { nsType   ∷ NetServiceType
                                  } deriving (Show, Eq)
 data NetAction      = NetActionNewService NetServiceType
                     | NetActionTest NetTestParam
+                    | NetActionOutp Handle String
                     | NetActionNULL deriving (Show, Eq)
 data NetServiceType = NSCommand | NSNULL deriving (Show, Eq)
 data NetResult      = ResNetSuccess | ResNetError String

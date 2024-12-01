@@ -6,16 +6,15 @@ import Prelude()
 import UPrelude
 import qualified Control.Monad.Logger.CallStack as Logger
 import Data.Time.Clock.System ( SystemTime )
-import qualified Data.Vector as V
 import Data ( FPS(..), KeyFunc(..), Key(..) )
+import Lua.Data ( LuaAction(..) )
 import Net.Data ( NetAction(..) )
 import Sign.Data ( Event, TState )
 import Sign.Except ( ProgExcept )
 import Sign.Queue ( Queue, TChan )
 import Sign.Var ( TVar )
 import qualified Vulk.GLFW as GLFW
-import qualified Vulkan.Core10 as VK
-import qualified Vulkan.Extensions.Handles as VK
+import qualified HsLua as L
 
 -- | specific utility actions
 data ProgResult = ProgSuccess | ProgError deriving (Show, Eq)
@@ -23,38 +22,26 @@ data ProgResult = ProgSuccess | ProgError deriving (Show, Eq)
 data LoopControl = ContinueLoop | AbortLoop deriving (Show, Eq)
 
 -- | env holds only pointers
-data Env = Env { envEventQ   ∷ Queue Event
-               , envInpQ     ∷ Queue InputAct
-               , envInpCh    ∷ TChan TState
-               , envNetQ     ∷ Queue NetAction
-               , envNetCh    ∷ TChan TState
-               -- only use these ones for reads i think
-               , envWindow   ∷ TVar (Maybe GLFW.Window) }
+data Env = Env { envEventQ ∷ Queue Event
+               , envInpQ   ∷ Queue InputAct
+               , envInpCh  ∷ TChan TState
+               , envNetQ   ∷ Queue NetAction
+               , envNetCh  ∷ TChan TState
+               , envLuaQ   ∷ Queue LuaAction
+               , envLuaCh  ∷ TChan TState
+               , envLuaSt  ∷ L.State
+               -- only use this one for reads i think
+               , envWindow ∷ TVar (Maybe GLFW.Window) }
 
-data State = State { stStatus         ∷ ProgExcept
-                   , stLogFunc        ∷ Logger.Loc → Logger.LogSource
-                                          → Logger.LogLevel → Logger.LogStr
-                                          → IO ()
-                   , stWindow         ∷ !(Maybe GLFW.Window)
-                   , stInput          ∷ !InputState
-                   , stStartT         ∷ !SystemTime
-                   , stFPS            ∷ !FPS
-                   , stTick           ∷ !(Maybe Double)
-                   , stInstance       ∷ Maybe VK.Instance
-                   , stDebugMsg       ∷ Maybe VK.DebugUtilsMessengerEXT
-                   , stSurface        ∷ Maybe VK.SurfaceKHR
-                   , stDevice         ∷ Maybe VK.Device
-                   , stSwapchain      ∷ Maybe VK.SwapchainKHR
-                   , stImgViews       ∷ Maybe (V.Vector VK.ImageView)
-                   , stRenderPass     ∷ Maybe VK.RenderPass
-                   , stFragShader     ∷ Maybe VK.ShaderModule
-                   , stVertShader     ∷ Maybe VK.ShaderModule
-                   , stPipelineLayout ∷ Maybe VK.PipelineLayout
-                   , stPipeline       ∷ Maybe VK.Pipeline
-                   , stFramebuffers   ∷ Maybe (V.Vector VK.Framebuffer)
-                   , stCmdBuffInfo    ∷ Maybe VK.CommandBufferAllocateInfo
-                   , stCmdBuffers     ∷ Maybe (V.Vector VK.CommandBuffer)
-                   , stSemaphores     ∷ Maybe (VK.Semaphore, VK.Semaphore) }
+data State = State { stStatus   ∷ ProgExcept
+                   , stLogFunc  ∷ Logger.Loc → Logger.LogSource
+                                    → Logger.LogLevel → Logger.LogStr
+                                    → IO ()
+                   , stWindow   ∷ !(Maybe GLFW.Window)
+                   , stInput    ∷ !InputState
+                   , stStartT   ∷ !SystemTime
+                   , stFPS      ∷ !FPS
+                   , stTick     ∷ !(Maybe Double) }
 
 -- | input state for the main thread only
 data InputState = InputState { inpStatus ∷ ISStatus

@@ -1,28 +1,14 @@
 {-# LANGUAGE Strict #-}
-{-# LANGUAGE DisambiguateRecordFields #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE OverloadedLists #-}
-{-# OPTIONS_GHC -Wno-name-shadowing #-}
 -- | vulkan specific draw loop
 module Vulk where
 import Prelude()
 import UPrelude
 import Control.Concurrent ( forkIO )
-import Control.Exception ( bracket )
-import Control.Monad ( when, (=<<) )
+import Control.Monad ( when )
 import Control.Monad.State.Class ( gets, modify )
-import Control.Monad.IO.Class
 import GHC.Stack ( HasCallStack)
-import qualified Data.Vector                       as V
 import Data ( FPS(..) )
-import Data.Bits ((.|.))
-import qualified Data.ByteString as BS
-import Data.List ( partition )
-import Data.Foldable ( toList, for_ )
-import qualified Data.Text                         as T
-import Data.Text.Encoding
-import Data.Word
-import Say
+import Lua ( luaThread )
 import Net ( networkThread )
 import Net.Data ( NetAction(..), NetServiceType(..) )
 import Prog ( Prog, MonadIO(liftIO), MonadReader(ask) )
@@ -33,24 +19,10 @@ import Prog.Util ( getTime, logInfo, loop )
 import Sign.Data ( TState(TStart) )
 import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
-import Vulk.Command ( createCommandBuffers, createSemaphores )
 import Vulk.Data ( VulkanLoopData(..) )
-import Vulk.Device ( createRenderP )
-import Vulk.Foreign ( runVk )
-import Vulk.Instance
-import Vulk.Pipeline ( createGraphicsPipeline, createFramebuffers )
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
 import qualified Vulk.GLFW as GLFW
-import           Vulkan.CStruct.Extends
-import Vulkan.Extensions.VK_EXT_debug_utils
-import Vulkan.Extensions.VK_EXT_validation_features
-import Vulkan.Extensions.VK_KHR_portability_enumeration
-import Vulkan.Extensions.VK_KHR_surface
-import Vulkan.Extensions.VK_KHR_swapchain
-import Vulkan.Core10
-import qualified Vulkan.Core10.DeviceInitialization as DI
-import Vulkan.Zero
 
 runVulk ∷ HasCallStack ⇒ Prog ε σ ()
 runVulk = do
@@ -59,17 +31,6 @@ runVulk = do
   currentSec        ← liftIO $ atomically $ newTVar @Int 0
   window ← initGLFWWindow 800 600 "madrigal" windowSizeChanged
   modify $ \s → s { stWindow = Just window }
-
-  VulkanWindow {..} ← withVulkWindow window "madrigal" 800 600
-  renderPass        ← createRenderP vwDevice vwFormat
-  graphicsPipe      ← createGraphicsPipeline vwDevice renderPass vwExtent vwFormat
-  framebuffers      ← createFramebuffers vwDevice vwImageViews renderPass vwExtent
-  commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe
-                        vwGraphicsQueueFamilyIndex framebuffers vwExtent
-  (imageAvailableSemaphore, renderFinishedSemaphore) ← createSemaphores vwDevice
-  liftIO $ GLFW.showWindow vwGLFWWindow
-  modify $ \s → s { stPipeline     = Just graphicsPipe
-                  , stFramebuffers = Just framebuffers }
   env ← ask
   liftIO $ atomically $ writeTVar (envWindow env) $ Just window
   -- THREADS
@@ -79,6 +40,8 @@ runVulk = do
   liftIO $ atomically $ writeChan (envNetCh env) TStart
   liftIO $ atomically $ writeQueue (envNetQ env)
     $ NetActionNewService NSCommand
+  _ ← liftIO $ forkIO $ luaThread env
+  liftIO $ atomically $ writeChan (envLuaCh env) TStart
   glfwWaitEventsMeanwhile $ do
     let beforeSwapchainCreation ∷ Prog ε σ ()
         beforeSwapchainCreation =
@@ -87,32 +50,14 @@ runVulk = do
       firstTick ← liftIO $ getCurTick
       beforeSwapchainCreation
       vulkLoop window
-        $ VulkanLoopData windowSizeChanged frameCount currentSec vwDevice vwSwapchain vwGraphicsQueue vwPresentQueue imageAvailableSemaphore renderFinishedSemaphore commandBuffers
-
+        $ VulkanLoopData windowSizeChanged frameCount currentSec
     logInfo "i am madrigal"
 
 vulkLoop ∷ GLFW.Window → VulkanLoopData → Prog ε σ LoopControl
-vulkLoop window (VulkanLoopData windowSizeChanged frameCount currentSec dev swapchain graphicsQueue presentQueue imageAvailableSemaphore renderFinishedSemaphore commandBuffers) = do
+vulkLoop window (VulkanLoopData windowSizeChanged frameCount currentSec) = do
   sizeChanged ← liftIO $ atomically $ readTVar windowSizeChanged
   shouldExit ← glfwLoop window $ do
     env ← ask
-
-    (_, imageIndex) ← acquireNextImageKHR dev swapchain maxBound imageAvailableSemaphore zero
-    let submitInfo = zero
-          { waitSemaphores   = [imageAvailableSemaphore]
-          , waitDstStageMask = [PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT]
-          , commandBuffers   = [ commandBufferHandle
-                                 $   commandBuffers
-                                 V.! fromIntegral imageIndex ]
-          , signalSemaphores = [renderFinishedSemaphore] }
-        presentInfo = zero { waitSemaphores = [renderFinishedSemaphore]
-                           , swapchains     = [swapchain]
-                           , imageIndices   = [imageIndex] }
-    queueSubmit graphicsQueue [SomeStruct submitInfo] zero
-    _ ← queuePresentKHR presentQueue presentInfo
-    queueWaitIdle graphicsQueue
-    deviceWaitIdle dev
-
     processEvents
     seconds ← getTime
     cur ← liftIO $ atomically $ readTVar currentSec

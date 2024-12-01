@@ -1,6 +1,5 @@
 -- | a thread that handles socket connections
 module Net where
-
 import Prelude()
 import UPrelude
 import Network.Socket
@@ -9,6 +8,7 @@ import Control.Concurrent
 import Control.Exception
 import Control.Monad ( when )
 import Control.Monad.Fix ( fix )
+import Lua.Data ( LuaAction(..) )
 import Net.Data ( NetServiceType(..), NetAction(..)
                 , NetState(..), NetStatus(..), NetTestParam(..)
                 , NetService(..), NetResult(..) )
@@ -86,6 +86,10 @@ processNet env netstate netaction = case netaction of
     let networkstring = show netstate
     atomically $ SQ.writeQueue (envEventQ env) $ EventLog LogInfo networkstring
     return ResNetSuccess
+  NetActionOutp hdl str         → do
+    hPutStrLn hdl str
+    hPutStr hdl $ "(madrigal) $> "
+    return ResNetSuccess
   NetActionTest NetTestNULL     → return ResNetSuccess
   NetActionNewService NSNULL    → return ResNetSuccess
   NetActionNULL                 → return ResNetSuccess
@@ -151,15 +155,16 @@ runCommand env (sock, _) chan msgNum = do
     hdl ← socketToHandle sock ReadWriteMode
     hSetBuffering hdl NoBuffering
     commLine ← dupChan chan
+    hPutStr hdl $ "(madrigal) $> "
     reader ← forkIO $ fix $ \loop → do
-      hPutStr hdl $ "(madrigal) $> "
       (nextNum, line) ← readChan commLine
       loop
     handle (\(SomeException _) → return ()) $ fix $ \loop → do
       line ← fmap init (hGetLine hdl)
       processInput env hdl line
       case line of
-        "exit" → hPutStrLn hdl "exiting..."
+        "exit" → return ()
+        "quit" → return ()
         _      → broadcast ("> " ⧺ line) >> loop
     killThread reader
     broadcast "goodbye"
@@ -169,5 +174,8 @@ processInput ∷ Env → Handle → String → IO ()
 processInput env hdl "quit" = do
   hPutStrLn hdl "quitting..."
   atomically $ SQ.writeQueue (envEventQ env) $ EventSys SysExit
-processInput _   hdl inp
-  = hPutStrLn hdl $ "unknown command: " ⧺ inp
+processInput env hdl "exit" = do
+  hPutStrLn hdl "exiting..."
+processInput env hdl inp    = do
+  atomically $ SQ.writeQueue (envLuaQ env) $ LuaActionCmdString hdl inp
+  --hPutStrLn hdl $ "unknown command: " ⧺ inp

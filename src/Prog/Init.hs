@@ -17,6 +17,7 @@ import Prog.Data ( Env(..), State(..)
 import Sign.Except ( ExType(ExProg), ProgExcept(ProgExcept) )
 import Sign.Queue ( newQueue, newTChan )
 import Sign.Var ( atomically, newTVar, TVar )
+import qualified HsLua as L
 
 -- | the entire monad is unraveled here, after the init functions
 runProg ∷ HasCallStack ⇒ (Either ProgExcept α → IO σ)
@@ -34,13 +35,19 @@ initEnv = do
   inputCh ← newTChan
   netQ    ← newQueue
   netCh   ← newTChan
+  luaQ    ← newQueue
+  luaCh   ← newTChan
+  luaSt   ← L.newstate
   win     ← atomically $ newTVar Nothing
-  let env = Env { envEventQ   = eventQ
-                , envInpQ     = inpQ
-                , envInpCh    = inputCh
-                , envNetQ     = netQ
-                , envNetCh    = netCh
-                , envWindow   = win }
+  let env = Env { envEventQ = eventQ
+                , envInpQ   = inpQ
+                , envInpCh  = inputCh
+                , envNetQ   = netQ
+                , envNetCh  = netCh
+                , envLuaQ   = luaQ
+                , envLuaCh  = luaCh
+                , envLuaSt  = luaSt
+                , envWindow = win }
   envChan ← atomically $ newTVar env
   return (envChan, env)
 
@@ -53,28 +60,13 @@ initState _   = do
       is  = initInpState
   lf ← Logger.runStdoutLoggingT $ Logger.LoggingT pure
   st ← getSystemTime
-  atomically $ newTVar State { stStatus         = ref
-                             , stLogFunc        = lf
-                             , stWindow         = Nothing
-                             , stInput          = is
-                             , stStartT         = st
-                             , stFPS            = FPS 60.0 60
-                             , stTick           = Nothing
-                             , stInstance       = Nothing
-                             , stDebugMsg       = Nothing
-                             , stSurface        = Nothing
-                             , stDevice         = Nothing
-                             , stSwapchain      = Nothing
-                             , stImgViews       = Nothing
-                             , stRenderPass     = Nothing
-                             , stFragShader     = Nothing
-                             , stVertShader     = Nothing
-                             , stPipelineLayout = Nothing
-                             , stPipeline       = Nothing
-                             , stFramebuffers   = Nothing
-                             , stCmdBuffInfo    = Nothing
-                             , stSemaphores     = Nothing
-                             }
+  atomically $ newTVar State { stStatus  = ref
+                             , stLogFunc = lf
+                             , stWindow  = Nothing
+                             , stInput   = is
+                             , stStartT  = st
+                             , stFPS     = FPS 60.0 60
+                             , stTick    = Nothing }
 
 -- | initial empty input state
 initInpState ∷ InputState

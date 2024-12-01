@@ -20,7 +20,6 @@ extra-doc-files: CHANGELOG.md
 
 common warnings
     ghc-options: -Wall -threaded
-    cpp-options: -DDEVELOPMENT
 
 executable madrigal
     -- Import common warning flags.
@@ -30,12 +29,13 @@ executable madrigal
     -- Modules included in this executable, other than Main.
     other-modules: UPrelude
                    Data
+                   Lua
+                   Lua.Data
                    Net
                    Net.Data
                    Prog
                    Prog.Data
                    Prog.Event
-                   Prog.Foreign
                    Prog.Init
                    Prog.Input
                    Prog.KeyEvent
@@ -47,49 +47,12 @@ executable madrigal
                    Sign.Var
                    Vulk
                    Vulk.Callback
-                   Vulk.Command
                    Vulk.Data
-                   Vulk.Device
-                   Vulk.Foreign
                    Vulk.GLFW
-                   Vulk.Instance
-                   Vulk.Pipeline
-                   Vulk.Shader
                    Vulk.VulkGLFW
     -- LANGUAGE extensions used by modules in this package.
-    default-extensions: DataKinds
-                      , DefaultSignatures
-                      , DeriveFoldable
-                      , DeriveFunctor
-                      , DeriveTraversable
-                      , DerivingStrategies
-                      , DuplicateRecordFields
-                      , FlexibleContexts
-                      , FlexibleInstances
-                      , GADTs
-                      , GeneralizedNewtypeDeriving
-                      , InstanceSigs
-                      , LambdaCase
+    default-extensions: OverloadedStrings
                       , UnicodeSyntax
-                      , MagicHash
-                      , NamedFieldPuns
-                      , NoMonomorphismRestriction
-                      , NumDecimals
-                      , OverloadedStrings
-                      , PatternSynonyms
-                      , PolyKinds
-                      , QuantifiedConstraints
-                      , RankNTypes
-                      , RecordWildCards
-                      , RoleAnnotations
-                      , ScopedTypeVariables
-                      , StandaloneDeriving
-                      , TupleSections
-                      , TypeApplications
-                      , TypeFamilyDependencies
-                      , TypeOperators
-                      , TypeSynonymInstances
-                      , ViewPatterns
     other-extensions: Strict
                     , StrictData
                     , TemplateHaskell
@@ -100,20 +63,15 @@ executable madrigal
                  , containers
                  , filepath
                  , GLFW-b
-                 , managed
+                 , hslua
                  , monad-logger
                  , mtl
                  , network
-                 , say
                  , stm
                  , time
-                 , text
-                 , transformers
-                 , vector
                  , vulkan
-                 , vulkan-utils
                  , template-haskell
     -- Directories containing source files.
     hs-source-dirs: src
     -- Base language which the package is written in.
-    default-language: GHC2021
+    default-language: GHC2024
