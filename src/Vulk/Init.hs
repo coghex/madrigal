@@ -21,6 +21,7 @@ import Say
 import Vulk.Data ( VulkanWindow(..) )
 import Vulk.Device ( createGraphicalDevice )
 import Vulk.Foreign
+import Vulk.Shader ( createShaders )
 import qualified Vulk.GLFW as GLFW
 import Vulkan.Extensions.VK_EXT_debug_utils
 import Vulkan.Extensions.VK_EXT_validation_features
@@ -85,6 +86,8 @@ destroyVulkanImage ∷ Device → ImageView → Prog ε σ ()
 destroyVulkanImage dev iv = destroyImageView dev iv Nothing
 destroyVulkanRenderPass ∷ Device → RenderPass → Prog ε σ ()
 destroyVulkanRenderPass dev rp = destroyRenderPass dev rp Nothing
+destroyVulkanPipelineLayout ∷ Device → PipelineLayout → Prog ε σ ()
+destroyVulkanPipelineLayout dev pl = destroyPipelineLayout dev pl Nothing
 
 vulkInstanceCreateInfo ∷ MonadIO m ⇒ m ( InstanceCreateInfo
                                          '[DebugUtilsMessengerCreateInfoEXT
@@ -192,3 +195,71 @@ createRenderP dev swapchainImageFormat = do
          }
     Nothing
   return rp
+
+createGraphicsPipeline ∷ Device → RenderPass → Extent2D → Format → Prog ε σ Pipeline
+createGraphicsPipeline dev renderPass swapchainExtent _swapchainImageFormat = do
+  shaderStages   ← createShaders dev
+  pipelineLayout ← allocResource (destroyVulkanPipelineLayout dev)
+                     $ createPipelineLayout dev zero Nothing
+  let
+    Extent2D { width = swapchainWidth, height = swapchainHeight } = swapchainExtent
+    pipelineCreateInfo ∷ GraphicsPipelineCreateInfo '[]
+    pipelineCreateInfo = zero
+      { stages             = shaderStages
+      , vertexInputState   = Just zero
+      , inputAssemblyState = Just zero
+                               { topology = PRIMITIVE_TOPOLOGY_TRIANGLE_LIST
+                               , primitiveRestartEnable = False }
+      , viewportState      = Just . SomeStruct $ zero
+        { viewports =
+          [ Viewport
+            { x        = 0
+            , y        = 0
+            , width    = realToFrac swapchainWidth
+            , height   = realToFrac swapchainHeight
+            , minDepth = 0
+            , maxDepth = 1 } ]
+        , scissors = [Rect2D { offset = Offset2D 0 0, extent = swapchainExtent }] }
+      , rasterizationState = Just . SomeStruct $ zero
+                               { depthClampEnable        = False
+                               , rasterizerDiscardEnable = False
+                               , lineWidth               = 1
+                               , polygonMode             = POLYGON_MODE_FILL
+                               , cullMode                = CULL_MODE_NONE
+                               , frontFace               = FRONT_FACE_CLOCKWISE
+                               , depthBiasEnable         = False }
+      , multisampleState   = Just . SomeStruct $ zero
+                               { sampleShadingEnable  = False
+                               , rasterizationSamples = SAMPLE_COUNT_1_BIT
+                               , minSampleShading     = 1
+                               , sampleMask           = [maxBound] }
+      , depthStencilState  = Nothing
+      , colorBlendState    = Just . SomeStruct $ zero
+                               { logicOpEnable = False
+                               , attachments   = [ zero
+                                                     { colorWriteMask =
+                                                       COLOR_COMPONENT_R_BIT
+                                                       .|. COLOR_COMPONENT_G_BIT
+                                                       .|. COLOR_COMPONENT_B_BIT
+                                                       .|. COLOR_COMPONENT_A_BIT
+                                                      , blendEnable   = False } ] }
+      , dynamicState       = Nothing
+      , layout             = pipelineLayout
+      , renderPass         = renderPass
+      , subpass            = 0
+      , basePipelineHandle = zero }
+  V.head . snd
+    <$> createGraphicsPipelines dev zero [SomeStruct pipelineCreateInfo] Nothing
+
+createFramebuffers ∷ Device → V.Vector ImageView → RenderPass
+  → Extent2D → Prog ε σ (V.Vector Framebuffer)
+createFramebuffers dev imageViews renderPass Extent2D {width, height} =
+  for imageViews $ \imageView → do
+    let framebufferCreateInfo ∷ FramebufferCreateInfo '[]
+        framebufferCreateInfo = zero
+          { renderPass  = renderPass
+          , attachments = [imageView]
+          , width
+          , height
+          , layers      = 1 }
+    createFramebuffer dev framebufferCreateInfo Nothing
