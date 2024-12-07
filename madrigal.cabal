@@ -36,6 +36,7 @@ executable madrigal
                    Prog
                    Prog.Data
                    Prog.Event
+                   Prog.Foreign
                    Prog.Init
                    Prog.Input
                    Prog.KeyEvent
@@ -48,11 +49,24 @@ executable madrigal
                    Vulk
                    Vulk.Callback
                    Vulk.Data
+                   Vulk.Device
+                   Vulk.Foreign
                    Vulk.GLFW
+                   Vulk.Init
                    Vulk.VulkGLFW
     -- LANGUAGE extensions used by modules in this package.
-    default-extensions: OverloadedStrings
+    default-extensions: DefaultSignatures
+                      , DuplicateRecordFields
+                      , MagicHash
+                      , NoMonomorphismRestriction
+                      , NumDecimals
+                      , OverloadedStrings
+                      , PatternSynonyms
+                      , QuantifiedConstraints
+                      , RecordWildCards
+                      , TypeFamilyDependencies
                       , UnicodeSyntax
+                      , ViewPatterns
     other-extensions: Strict
                     , StrictData
                     , TemplateHaskell
@@ -67,9 +81,14 @@ executable madrigal
                  , monad-logger
                  , mtl
                  , network
+                 , say
                  , stm
+                 , text
                  , time
+                 , transformers
+                 , vector
                  , vulkan
+                 , vulkan-utils
                  , template-haskell
     -- Directories containing source files.
     hs-source-dirs: src

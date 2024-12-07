@@ -19,7 +19,8 @@ import Prog.Util ( getTime, logInfo, loop )
 import Sign.Data ( TState(TStart) )
 import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
-import Vulk.Data ( VulkanLoopData(..) )
+import Vulk.Data ( VulkanLoopData(..), VulkanWindow(..) )
+import Vulk.Init ( withVulkanWindow )
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
 import qualified Vulk.GLFW as GLFW
@@ -42,6 +43,10 @@ runVulk = do
     $ NetActionNewService NSCommand
   _ ← liftIO $ forkIO $ luaThread env
   liftIO $ atomically $ writeChan (envLuaCh env) TStart
+
+  -- Vulkan
+  VulkanWindow {..} ← withVulkanWindow window "madrigal" 800 600
+
   glfwWaitEventsMeanwhile $ do
     let beforeSwapchainCreation ∷ Prog ε σ ()
         beforeSwapchainCreation =

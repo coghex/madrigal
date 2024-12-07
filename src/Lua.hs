@@ -19,6 +19,7 @@ luaThread env = do
   let ls = envLuaSt env
   _ ← L.runWith ls $ do
     L.openlibs
+    L.dofile $ Just "mod/madrigal/madrigal.lua"
   luaLoop env TStart
 luaLoop ∷ Env → TState → IO ()
 luaLoop env TStop = do
