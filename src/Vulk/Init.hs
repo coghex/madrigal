@@ -83,6 +83,8 @@ destroyVulkanSurface ∷ Instance → SurfaceKHR → Prog ε σ ()
 destroyVulkanSurface inst surf = destroySurfaceKHR inst surf Nothing
 destroyVulkanImage ∷ Device → ImageView → Prog ε σ ()
 destroyVulkanImage dev iv = destroyImageView dev iv Nothing
+destroyVulkanRenderPass ∷ Device → RenderPass → Prog ε σ ()
+destroyVulkanRenderPass dev rp = destroyRenderPass dev rp Nothing
 
 vulkInstanceCreateInfo ∷ MonadIO m ⇒ m ( InstanceCreateInfo
                                          '[DebugUtilsMessengerCreateInfoEXT
@@ -147,3 +149,46 @@ debugUtilsMessengerCreateInfo = zero
                       .|. DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
   , pfnUserCallback = debugCallbackPtr
   }
+
+createRenderP :: Device -> Format -> Prog ε σ RenderPass
+createRenderP dev swapchainImageFormat = do
+  let
+    attachmentDescription :: AttachmentDescription
+    attachmentDescription = zero
+      { format         = swapchainImageFormat
+      , samples        = SAMPLE_COUNT_1_BIT
+      , loadOp         = ATTACHMENT_LOAD_OP_CLEAR
+      , storeOp        = ATTACHMENT_STORE_OP_STORE
+      , stencilLoadOp  = ATTACHMENT_LOAD_OP_DONT_CARE
+      , stencilStoreOp = ATTACHMENT_STORE_OP_DONT_CARE
+      , initialLayout  = IMAGE_LAYOUT_UNDEFINED
+      , finalLayout    = IMAGE_LAYOUT_PRESENT_SRC_KHR
+      }
+    subpass :: SubpassDescription
+    subpass = zero
+      { pipelineBindPoint = PIPELINE_BIND_POINT_GRAPHICS
+      , colorAttachments  =
+        [ zero { attachment = 0
+               , layout     = IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+               }
+        ]
+      }
+    subpassDependency :: SubpassDependency
+    subpassDependency = zero
+      { srcSubpass    = SUBPASS_EXTERNAL
+      , dstSubpass    = 0
+      , srcStageMask  = PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+      , srcAccessMask = zero
+      , dstStageMask  = PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+      , dstAccessMask = ACCESS_COLOR_ATTACHMENT_READ_BIT
+                          .|. ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+      }
+  rp ← allocResource (destroyVulkanRenderPass dev)
+         $ createRenderPass
+    dev
+    zero { attachments  = [attachmentDescription]
+         , subpasses    = [subpass]
+         , dependencies = [subpassDependency]
+         }
+    Nothing
+  return rp
