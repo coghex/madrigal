@@ -17,9 +17,16 @@ data VulkResult = VulkSuccess | VulkError | GLFWError deriving (Show, Eq)
 
 -- | the main data for the vulkan loop
 data VulkanLoopData = VulkanLoopData
-       { windowSizeChanged ∷ TVar Bool
-       , framCount         ∷ TVar Int
-       , currentSec        ∷ TVar Int
+       { windowSizeChanged       ∷ TVar Bool
+       , framCount               ∷ TVar Int
+       , currentSec              ∷ TVar Int
+       , device                  ∷ Device
+       , swapchain               ∷ SwapchainKHR
+       , graphicsQueue           ∷ Queue
+       , presentQueue            ∷ Queue
+       , imageAvailableSemaphore ∷ Semaphore
+       , renderFinishedSemaphore ∷ Semaphore
+       , commandBuffers          ∷ V.Vector CommandBuffer
        }
 
 -- 

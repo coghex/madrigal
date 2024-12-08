@@ -21,7 +21,8 @@ import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
 import Vulk.Data ( VulkanLoopData(..), VulkanWindow(..) )
 import Vulk.Init ( withVulkanWindow, createRenderP, createGraphicsPipeline
-                 , createFramebuffers, createCommandBuffers )
+                 , createFramebuffers, createCommandBuffers, createSemaphores )
+import Vulk.Loop ( acquireVulkanImage, submitQueue, waitIdle )
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
 import qualified Vulk.GLFW as GLFW
@@ -53,6 +54,8 @@ runVulk = do
   commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe
                                            vwGraphicsQueueFamilyIndex
                                            framebuffers vwExtent
+  (imageAvailableSemaphore, renderFinishedSemaphore) ← createSemaphores vwDevice
+  liftIO $ GLFW.showWindow vwGLFWWindow
 
   glfwWaitEventsMeanwhile $ do
     let beforeSwapchainCreation ∷ Prog ε σ ()
@@ -62,15 +65,27 @@ runVulk = do
       firstTick ← liftIO $ getCurTick
       beforeSwapchainCreation
       vulkLoop window
-        $ VulkanLoopData windowSizeChanged frameCount currentSec
+        $ VulkanLoopData windowSizeChanged frameCount currentSec vwDevice
+                         vwSwapchain vwGraphicsQueue vwPresentQueue
+                         imageAvailableSemaphore renderFinishedSemaphore commandBuffers
     logInfo "i am madrigal"
 
 vulkLoop ∷ GLFW.Window → VulkanLoopData → Prog ε σ LoopControl
-vulkLoop window (VulkanLoopData windowSizeChanged frameCount currentSec) = do
+vulkLoop window (VulkanLoopData windowSizeChanged frameCount currentSec dev
+                                swapchain graphicsQueue presentQueue
+                                imageAvailableSemaphore renderFinishedSemaphore
+                                commandBuffers) = do
   sizeChanged ← liftIO $ atomically $ readTVar windowSizeChanged
   shouldExit ← glfwLoop window $ do
     env ← ask
+
+    imageIndex ← acquireVulkanImage dev swapchain maxBound imageAvailableSemaphore
+    submitQueue swapchain imageAvailableSemaphore renderFinishedSemaphore
+                imageIndex graphicsQueue presentQueue commandBuffers
+    waitIdle dev graphicsQueue
+
     processEvents
+
     seconds ← getTime
     cur ← liftIO $ atomically $ readTVar currentSec
     if floor seconds ≠ cur then do

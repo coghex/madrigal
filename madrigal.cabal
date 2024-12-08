@@ -53,6 +53,7 @@ executable madrigal
                    Vulk.Foreign
                    Vulk.GLFW
                    Vulk.Init
+                   Vulk.Loop
                    Vulk.Shader
                    Vulk.VulkGLFW
     -- LANGUAGE extensions used by modules in this package.

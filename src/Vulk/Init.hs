@@ -297,3 +297,12 @@ createCommandBuffers dev renderPass graphicsPipeline graphicsQueueFamilyIndex
                   cmdBindPipeline buffer PIPELINE_BIND_POINT_GRAPHICS graphicsPipeline
                   cmdDraw buffer 3 1 0 0
   pure buffers
+
+createSemaphores ∷ Device → Prog ε σ (Semaphore, Semaphore)
+createSemaphores dev = do
+  imageAvailableSemaphore ← allocResource (\s0 → destroySemaphore dev s0 Nothing)
+                              $ createSemaphore dev zero Nothing
+  renderFinishedSemaphore ← allocResource (\s0 → destroySemaphore dev s0 Nothing)
+                              $ createSemaphore dev zero Nothing
+  pure (imageAvailableSemaphore, renderFinishedSemaphore)
+
