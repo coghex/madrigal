@@ -13,6 +13,7 @@ import Data.List ( partition )
 import qualified Data.Text as T
 import Data.Traversable ( for )
 import qualified Data.Vector as V
+import Data.Word ( Word32(..) )
 import Foreign.Ptr ( castPtr, nullPtr )
 import Prog ( Prog(..) )
 import Prog.Foreign
@@ -262,4 +263,37 @@ createFramebuffers dev imageViews renderPass Extent2D {width, height} =
           , width
           , height
           , layers      = 1 }
-    createFramebuffer dev framebufferCreateInfo Nothing
+    allocResource (\fb0 → destroyFramebuffer dev fb0 Nothing)
+      $ createFramebuffer dev framebufferCreateInfo Nothing
+
+createCommandBuffers ∷ Device → RenderPass → Pipeline → Word32
+  → V.Vector Framebuffer → Extent2D → Prog ε σ (V.Vector CommandBuffer)
+createCommandBuffers dev renderPass graphicsPipeline graphicsQueueFamilyIndex
+                     framebuffers swapchainExtent = do
+  let commandPoolCreateInfo ∷ CommandPoolCreateInfo
+      commandPoolCreateInfo =
+        zero { queueFamilyIndex = graphicsQueueFamilyIndex }
+  commandPool ← allocResource (\cp0 → destroyCommandPool dev cp0 Nothing)
+                  $ createCommandPool dev commandPoolCreateInfo Nothing
+  let commandBufferAllocateInfo ∷ CommandBufferAllocateInfo
+      commandBufferAllocateInfo = zero
+        { commandPool        = commandPool
+        , level              = COMMAND_BUFFER_LEVEL_PRIMARY
+        , commandBufferCount = fromIntegral $ V.length framebuffers }
+  buffers ← allocResource (\cb0 → freeCommandBuffers dev commandPool cb0)
+              $ allocateCommandBuffers dev commandBufferAllocateInfo
+  _ ← liftIO ∘ for (V.zip framebuffers buffers)
+        $ \(framebuffer, buffer) → useCommandBuffer buffer
+            zero { flags = COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT }
+          $ do
+            let renderPassBeginInfo = zero
+                  { renderPass  = renderPass
+                  , framebuffer = framebuffer
+                  , renderArea  = Rect2D { offset = zero
+                                         , extent = swapchainExtent }
+                  , clearValues = [Color (Float32 0.1 0.1 0.1 0)] }
+            cmdUseRenderPass buffer renderPassBeginInfo SUBPASS_CONTENTS_INLINE
+              $ do
+                  cmdBindPipeline buffer PIPELINE_BIND_POINT_GRAPHICS graphicsPipeline
+                  cmdDraw buffer 3 1 0 0
+  pure buffers

@@ -20,7 +20,8 @@ import Sign.Data ( TState(TStart) )
 import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
 import Vulk.Data ( VulkanLoopData(..), VulkanWindow(..) )
-import Vulk.Init ( withVulkanWindow, createRenderP, createGraphicsPipeline )
+import Vulk.Init ( withVulkanWindow, createRenderP, createGraphicsPipeline
+                 , createFramebuffers, createCommandBuffers )
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
 import qualified Vulk.GLFW as GLFW
@@ -48,6 +49,10 @@ runVulk = do
   VulkanWindow {..} ← withVulkanWindow window "madrigal" 800 600
   renderPass        ← createRenderP vwDevice vwFormat
   graphicsPipe      ← createGraphicsPipeline vwDevice renderPass vwExtent vwFormat
+  framebuffers      ← createFramebuffers vwDevice vwImageViews renderPass vwExtent
+  commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe
+                                           vwGraphicsQueueFamilyIndex
+                                           framebuffers vwExtent
 
   glfwWaitEventsMeanwhile $ do
     let beforeSwapchainCreation ∷ Prog ε σ ()
