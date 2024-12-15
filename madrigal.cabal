@@ -47,7 +47,9 @@ executable madrigal
                    Sign.Queue
                    Sign.Var
                    Vulk
+                   Vulk.Buff
                    Vulk.Callback
+                   Vulk.Command
                    Vulk.Data
                    Vulk.Device
                    Vulk.Foreign
