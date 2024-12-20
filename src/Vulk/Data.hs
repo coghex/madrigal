@@ -34,9 +34,7 @@ data VulkanWindow = VulkanWindow
   , vwPhysicalDevice           ∷ PhysicalDevice
   , vwDevice                   ∷ Device
   , vwSurface                  ∷ SurfaceKHR
-  , vwSwapchain                ∷ Maybe SwapchainKHR
-  , vwExtent                   ∷ Maybe Extent2D
-  , vwFormat                   ∷ Maybe Format
+  , vwSwapchain                ∷ SwapchainInfo
   , vwDevQueues                ∷ DevQueues
   }
 

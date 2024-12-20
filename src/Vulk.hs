@@ -16,19 +16,24 @@ import Prog ( Prog, MonadIO(liftIO), MonadReader(ask) )
 import Prog.Data ( Env(..), State(..), LoopControl(..) )
 import Prog.Event ( processEvents )
 import Prog.Input ( inputThread )
-import Prog.Util ( getTime, logInfo, loop )
+import Prog.Util ( getTime, logInfo, loop, allocResource )
 import Sign.Data ( TState(TStart) )
 import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
 import Vulk.Command ( createVulkanCommandPool )
-import Vulk.Data ( VulkanLoopData(..), VulkanWindow(..), DevQueues(..) )
-import Vulk.Init ( withVulkanWindow, createRenderP, createGraphicsPipeline
-                 , createFramebuffers, createCommandBuffers, createSemaphores )
-import Vulk.Loop ( acquireVulkanImage, submitQueue, waitIdle, createVulkanSwapchain )
-import Vulk.Texture ( createTextureImageView )
+import Vulk.Data ( VulkanLoopData(..), VulkanWindow(..), DevQueues(..)
+                 , SwapchainInfo(..) )
+import Vulk.Init ( withVulkanWindow, createRenderP, createVulkanDescriptorPool
+                 , createFramebuffers, createCommandBuffers, createSemaphores
+                 , createVulkanGraphicsPipeline )
+import Vulk.Loop ( acquireVulkanImage, submitQueue, waitIdle, createVulkanSwapchain
+                 , createSwapchainImageViews, createDescriptorSets )
+import Vulk.Texture ( createTextureImageView, createTextureSampler )
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
 import qualified Vulk.GLFW as GLFW
+import Vulkan.Core10
+import Vulkan.Zero ( zero )
 
 runVulk ∷ HasCallStack ⇒ Prog ε σ ()
 runVulk = do
@@ -54,15 +59,38 @@ runVulk = do
   (imageAvailableSemaphore, renderFinishedSemaphore) ← createSemaphores vwDevice
   commandPool       ← createVulkanCommandPool vwDevice
                        $ graphicsFamIdx vwDevQueues
-  --(texture, _)      ← createTextureImageView vwPhysicalDevice vwDevice commandPool
-  --                      (graphicsQueue vwDevQueues) "dat/tile01.png"
+    -- Update pipeline layout to include texture sampler
+  let layoutBindings = [ zero { binding           = 0
+                              , descriptorType
+                                  = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+                              , descriptorCount   = 1
+                              , stageFlags        = SHADER_STAGE_FRAGMENT_BIT } ]
+      layoutInfo = zero { bindings = V.fromList layoutBindings }
+  descriptorSetLayout ← allocResource
+    (\dsl → destroyDescriptorSetLayout vwDevice dsl Nothing)
+    $ createDescriptorSetLayout vwDevice layoutInfo Nothing
 
---  renderPass        ← createRenderP vwDevice vwFormat
---  graphicsPipe      ← createGraphicsPipeline vwDevice renderPass vwExtent vwFormat
---  framebuffers      ← createFramebuffers vwDevice (V.singleton texture) renderPass vwExtent
---  commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe
---                                           vwGraphicsQueueFamilyIndex
---                                           framebuffers vwExtent
+  (textureView, miplevels)
+    ← createTextureImageView vwPhysicalDevice vwDevice commandPool
+                             (graphicsQueue vwDevQueues) "dat/tile01.png"
+  textureSampler    ← createTextureSampler vwDevice miplevels
+
+  descriptorPool    ← createVulkanDescriptorPool vwDevice
+  descriptorSet     ← createDescriptorSets vwDevice descriptorPool
+                        descriptorSetLayout textureView textureSampler
+
+  let vwFormat = swapImgFormat vwSwapchain
+      vwExtent = swapExtent    vwSwapchain
+  renderPass        ← createRenderP vwDevice vwFormat
+  (graphicsPipe,pl) ← createVulkanGraphicsPipeline vwDevice renderPass 
+                        (swapExtent vwSwapchain) vwFormat descriptorSetLayout
+  swapchainImgViews ← createSwapchainImageViews vwDevice vwSwapchain
+  framebuffers      ← createFramebuffers vwDevice swapchainImgViews
+                        renderPass (swapExtent vwSwapchain)
+  commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe pl
+                                           (graphicsFamIdx vwDevQueues)
+                                           framebuffers (swapExtent vwSwapchain)
+                                           descriptorSet
   liftIO $ GLFW.showWindow vwGLFWWindow
 
   glfwWaitEventsMeanwhile $ do
@@ -83,9 +111,6 @@ vulkLoop window (VulkanLoopData windowSizeChanged devQueues frameCount
                                 currentSec pdev dev surf imageAvailableSemaphore
                                 renderFinishedSemaphore) = do
   sizeChanged ← liftIO $ atomically $ readTVar windowSizeChanged
-
-  swapinfo ← createVulkanSwapchain pdev dev devQueues surf
-
   shouldExit ← glfwLoop window $ do
     env ← ask
     --imageIndex ← acquireVulkanImage dev swapchain maxBound imageAvailableSemaphore

@@ -23,6 +23,7 @@ import Say
 import Vulk.Data ( VulkanWindow(..), DevQueues(..) )
 import Vulk.Device ( createGraphicalDevice )
 import Vulk.Foreign
+import Vulk.Loop ( createVulkanSwapchain )
 import Vulk.Shader ( createShaders )
 import qualified Vulk.GLFW as GLFW
 import Vulkan.Extensions.VK_EXT_debug_utils
@@ -51,7 +52,9 @@ withVulkanWindow window name width height = do
   surface ← allocResource (destroyVulkanSurface vulkInst)
               $ createSurf vulkInst window
   (pdev,dev,dq) ← createGraphicalDevice vulkInst surface
-  pure $ VulkanWindow window pdev dev surface Nothing Nothing Nothing dq
+
+  swapinfo ← createVulkanSwapchain pdev dev dq surface
+  pure $ VulkanWindow window pdev dev surface swapinfo dq
 
 createSurf ∷ Instance → GLFW.Window → Prog ε σ SurfaceKHR
 createSurf vulkInst window = allocaPeek $ runVk ∘ GLFW.createWindowSurface
@@ -179,11 +182,15 @@ createRenderP dev swapchainImageFormat = do
     Nothing
   return rp
 
-createGraphicsPipeline ∷ Device → RenderPass → Extent2D → Format → Prog ε σ Pipeline
-createGraphicsPipeline dev renderPass swapchainExtent _swapchainImageFormat = do
+createVulkanGraphicsPipeline ∷ Device → RenderPass → Extent2D → Format
+  → DescriptorSetLayout → Prog ε σ (Pipeline, PipelineLayout)
+createVulkanGraphicsPipeline dev renderPass swapchainExtent _swapchainImageFormat
+                             descriptorSetLayout = do
   shaderStages   ← createShaders dev
   pipelineLayout ← allocResource (destroyVulkanPipelineLayout dev)
-                     $ createPipelineLayout dev zero Nothing
+                     $ createPipelineLayout dev zero
+                         { setLayouts = [descriptorSetLayout]
+                         , pushConstantRanges = [] } Nothing
   let
     Extent2D { width = swapchainWidth, height = swapchainHeight } = swapchainExtent
     pipelineCreateInfo ∷ GraphicsPipelineCreateInfo '[]
@@ -231,8 +238,9 @@ createGraphicsPipeline dev renderPass swapchainExtent _swapchainImageFormat = do
       , renderPass         = renderPass
       , subpass            = 0
       , basePipelineHandle = zero }
-  V.head . snd
+  pipe ← V.head . snd
     <$> createGraphicsPipelines dev zero [SomeStruct pipelineCreateInfo] Nothing
+  return (pipe, pipelineLayout)
 
 createFramebuffers ∷ Device → V.Vector ImageView → RenderPass
   → Extent2D → Prog ε σ (V.Vector Framebuffer)
@@ -248,10 +256,11 @@ createFramebuffers dev imageViews renderPass Extent2D {width, height} =
     allocResource (\fb0 → destroyFramebuffer dev fb0 Nothing)
       $ createFramebuffer dev framebufferCreateInfo Nothing
 
-createCommandBuffers ∷ Device → RenderPass → Pipeline → Word32
-  → V.Vector Framebuffer → Extent2D → Prog ε σ (V.Vector CommandBuffer)
-createCommandBuffers dev renderPass graphicsPipeline graphicsQueueFamilyIndex
-                     framebuffers swapchainExtent = do
+createCommandBuffers ∷ Device → RenderPass → Pipeline → PipelineLayout
+  → Word32 → V.Vector Framebuffer → Extent2D → DescriptorSet
+  → Prog ε σ (V.Vector CommandBuffer)
+createCommandBuffers dev renderPass graphicsPipeline pipelineLayout
+  graphicsQueueFamilyIndex framebuffers swapchainExtent descriptorSet = do
   let commandPoolCreateInfo ∷ CommandPoolCreateInfo
       commandPoolCreateInfo =
         zero { queueFamilyIndex = graphicsQueueFamilyIndex }
@@ -277,6 +286,8 @@ createCommandBuffers dev renderPass graphicsPipeline graphicsQueueFamilyIndex
             cmdUseRenderPass buffer renderPassBeginInfo SUBPASS_CONTENTS_INLINE
               $ do
                   cmdBindPipeline buffer PIPELINE_BIND_POINT_GRAPHICS graphicsPipeline
+                  cmdBindDescriptorSets buffer PIPELINE_BIND_POINT_GRAPHICS
+                    pipelineLayout 0 [descriptorSet] []
                   cmdDraw buffer 3 1 0 0
   pure buffers
 
@@ -288,3 +299,11 @@ createSemaphores dev = do
                               $ createSemaphore dev zero Nothing
   pure (imageAvailableSemaphore, renderFinishedSemaphore)
 
+createVulkanDescriptorPool ∷ Device → Prog ε σ DescriptorPool
+createVulkanDescriptorPool dev = do
+  let poolSize = zero { type' = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+                      , descriptorCount = 1 }
+      poolCreateInfo = zero { poolSizes = [poolSize]
+                            , maxSets = 1 }
+  allocResource (\pool0 → destroyDescriptorPool dev pool0 Nothing)
+    $ createDescriptorPool dev poolCreateInfo Nothing

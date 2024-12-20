@@ -59,6 +59,30 @@ createVulkanSwapchain pdev dev queues surface = do
                          , swapImgFormat  = form
                          , swapExtent     = sExtent }
 
+-- | creates image views for swapchain images
+createSwapchainImageViews ∷ Device → SwapchainInfo → Prog ε σ (V.Vector ImageView)
+createSwapchainImageViews dev SwapchainInfo{..} = do
+  V.mapM createImageViewf swapImgs
+  where
+    createImageViewf image = 
+      allocResource (\iv → destroyImageView dev iv Nothing) $
+        createImageView dev zero
+          { image = image
+          , viewType = IMAGE_VIEW_TYPE_2D
+          , format = swapImgFormat
+          , components = zero
+              { r = COMPONENT_SWIZZLE_IDENTITY
+              , g = COMPONENT_SWIZZLE_IDENTITY
+              , b = COMPONENT_SWIZZLE_IDENTITY
+              , a = COMPONENT_SWIZZLE_IDENTITY }
+          , subresourceRange = zero
+              { aspectMask = IMAGE_ASPECT_COLOR_BIT
+              , baseMipLevel = 0
+              , levelCount = 1
+              , baseArrayLayer = 0
+              , layerCount = 1 }
+          } Nothing
+
 -- | use the best swap surface format
 chooseSwapSurfaceFormat ∷ SwapchainSupportDetails → SurfaceFormatKHR
 chooseSwapSurfaceFormat (SwapchainSupportDetails _ formats _) = best
@@ -86,6 +110,25 @@ chooseSwapExtent SwapchainSupportDetails{..} = zero
   where Extent2D{width=minw,height=minh} = minImageExtent capabilities
         Extent2D{width=maxw,height=maxh} = maxImageExtent capabilities
         Extent2D{width=curw,height=curh} = currentExtent  capabilities
+
+createDescriptorSets ∷ Device → DescriptorPool → DescriptorSetLayout
+  → ImageView → Sampler → Prog ε σ DescriptorSet
+createDescriptorSets dev descPool descSetLayout imageView sampler = do
+  let allocInfo = zero { descriptorPool = descPool
+                       , setLayouts = [descSetLayout] }
+  descSets ← allocateDescriptorSets dev allocInfo
+  let descSet = V.head descSets
+  let imageInfo = zero { imageView = imageView
+                       , imageLayout = IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                       , sampler = sampler }
+      writeDescSet = zero { dstSet = descSet
+                          , dstBinding = 0
+                          , dstArrayElement = 0
+                          , descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+                          , descriptorCount = 1
+                          , imageInfo = [imageInfo] }
+  updateDescriptorSets dev [SomeStruct writeDescSet] []
+  return descSet
 
 acquireVulkanImage ∷ Device → SwapchainKHR → Word64 → Semaphore
   → Prog ε σ Word32

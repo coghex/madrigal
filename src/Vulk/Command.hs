@@ -9,7 +9,7 @@ import Data.Word ( Word32(..), Word64(..) )
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS
 import Prog ( Prog(..) )
-import Prog.Util ( allocResource, locally )
+import Prog.Util ( allocResource, locally, logInfo )
 import Prog.Foreign ( newArrayRes )
 import Vulk.Foreign ( runVk )
 import Vulkan.CStruct.Extends
@@ -36,9 +36,11 @@ runCommandsOnce dev commandPool cmdQueue action = do
       buffer'' = commandBufferHandle buffer
       cmdbBI = zero { flags = COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
                     , inheritanceInfo = Nothing }
+  logInfo "beginning command buffer recording"
   beginCommandBuffer buffer cmdbBI
   result ← action buffer
   endCommandBuffer buffer
+  logInfo "finished command buffer recording"
   let submitInfo = zero
                           { waitSemaphores   = []
                           , waitDstStageMask = []
@@ -46,7 +48,10 @@ runCommandsOnce dev commandPool cmdQueue action = do
                           , signalSemaphores = [] }
   locally $ do
     fence ← createFence dev zero Nothing
+    logInfo "submitting command buffer"
     queueSubmit cmdQueue [SomeStruct submitInfo] fence
+    logInfo "waiting for fence"
     let fencePtr = V.singleton fence
     waitForFences dev fencePtr True (maxBound ∷ Word64)
+    logInfo "fence signaled"
   return result

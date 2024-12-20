@@ -6,18 +6,22 @@ import Control.Monad ( when, filterM )
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as Vec
 import Data.Word ( Word32(..) )
-import Foreign.Marshal.Array ( copyArray )
+import Foreign.Marshal.Array ( copyArray, allocaArray )
 import Foreign.Ptr ( castPtr )
 import Foreign.ForeignPtr ( withForeignPtr )
+import Foreign.Storable ( peek )
 import Prog ( Prog(..), MonadIO(liftIO) )
 import Prog.Util ( logExcept, locally, allocResource, allocResource'
                  , logInfo )
 import Sign.Except ( ExType(..) )
+import Vulkan.CStruct.Extends ( SomeStruct(..) )
 import Vulkan.Core10
+import Vulkan.Core10 as Vulk
 import Vulkan.Zero
 import Vulk.Buff ( createVulkanBuffer, findMemoryType )
 import Vulk.Command ( runCommandsOnce )
 import Vulk.Data ( VulkResult(..) )
+import Vulk.Foreign ( runVk )
 
 createTextureImageView ∷ PhysicalDevice → Device → CommandPool
   → Queue → FilePath → Prog ε σ (ImageView, Word32)
@@ -37,8 +41,6 @@ createTextureImageView pdev dev cmdPool cmdQueue path = do
       IMAGE_TILING_OPTIMAL (IMAGE_USAGE_TRANSFER_SRC_BIT
       ⌄ IMAGE_USAGE_TRANSFER_DST_BIT ⌄ IMAGE_USAGE_SAMPLED_BIT)
       MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-  runCommandsOnce dev cmdPool cmdQueue $ transitionImageLayout
-    image FORMAT_R8G8B8A8_UNORM Undef_TransDst mipLevels
   locally $ do
     (stagingMem, stagingBuf) ← createVulkanBuffer pdev dev bufSize
       BUFFER_USAGE_TRANSFER_SRC_BIT
@@ -49,11 +51,34 @@ createTextureImageView pdev dev cmdPool cmdQueue path = do
       $ \imageDataPtr → copyArray (castPtr stagingDataPtr)
                           imageDataPtr imageDataLen
     unmapMemory dev stagingMem
-    copyBufferToImage dev cmdPool cmdQueue stagingBuf image
-      (fromIntegral imageWidth) (fromIntegral imageHeight)
-  --runCommandsOnce dev cmdPool cmdQueue $ generateMipmaps
-  --  pdev image FORMAT_R8G8B8A8_UNORM
-  --  (fromIntegral imageWidth) (fromIntegral imageHeight) mipLevels
+    runCommandsOnce dev cmdPool cmdQueue $ \cmdBuf → do
+      logInfo "starting image layout transitions and copy"
+      -- Explicit barrier to transition from UNDEFINED to TRANSFER_DST
+      let barrier1 = zero 
+            { oldLayout           = IMAGE_LAYOUT_UNDEFINED
+            , newLayout           = IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+            , srcQueueFamilyIndex = QUEUE_FAMILY_IGNORED
+            , dstQueueFamilyIndex = QUEUE_FAMILY_IGNORED
+            , image               = image
+            , subresourceRange    = zero 
+                { aspectMask     = IMAGE_ASPECT_COLOR_BIT
+                , baseMipLevel   = 0
+                , levelCount     = mipLevels
+                , baseArrayLayer = 0
+                , layerCount     = 1 }
+            , srcAccessMask       = zero
+            , dstAccessMask       = ACCESS_TRANSFER_WRITE_BIT
+            }
+      cmdPipelineBarrier cmdBuf 
+                         PIPELINE_STAGE_TOP_OF_PIPE_BIT
+                         PIPELINE_STAGE_TRANSFER_BIT
+                         zero V.empty V.empty $ V.fromList [SomeStruct barrier1]
+      logInfo "Executed first transition barrier"
+      copyBufferToImage cmdBuf stagingBuf image
+        (fromIntegral imageWidth) (fromIntegral imageHeight)
+      logInfo "Completed image copy"
+      transitionImageLayout image FORMAT_R8G8B8A8_UNORM
+        TransDst_ShaderRO mipLevels cmdBuf
   imageView ← createVulkanImageView dev image
     FORMAT_R8G8B8A8_UNORM IMAGE_ASPECT_COLOR_BIT mipLevels
   return (imageView, mipLevels)
@@ -91,11 +116,10 @@ createVulkanImage pdev dev width height mipLevels samples format
   bindImageMemory dev image imageMemory 0
   return (imageMemory, image)
 
-copyBufferToImage ∷ Device → CommandPool → Queue → Buffer
+copyBufferToImage ∷ CommandBuffer → Buffer
   → Image → Word32 → Word32 → Prog ε σ ()
-copyBufferToImage dev cmdPool cmdQueue buffer image width height
-  = runCommandsOnce dev cmdPool cmdQueue $ \cmdBuf
-    → cmdCopyBufferToImage cmdBuf buffer image
+copyBufferToImage cmdBuf buffer image width height
+  = cmdCopyBufferToImage cmdBuf buffer image
                            IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL $ V.singleton region
   where region = zero { bufferOffset      = 0
                       , bufferRowLength   = 0
@@ -197,29 +221,35 @@ dependents Undef_ColorAtt = TransitionDependent
 
 transitionImageLayout ∷ Image → Format → ImageLayoutTransition
   → Word32 → CommandBuffer → Prog ε σ ()
-transitionImageLayout image format transition mipLevels cmdBuf
-  = cmdPipelineBarrier cmdBuf srcStageMask dstStageMask
-                       zero V.empty V.empty V.empty
-  where TransitionDependent{..} = dependents transition
-        aspectMask = case newLayout of
-          IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-            | hasStencilComponent format → IMAGE_ASPECT_DEPTH_BIT
-                                         ⌄ IMAGE_ASPECT_STENCIL_BIT
-            | otherwise                  → IMAGE_ASPECT_DEPTH_BIT
-          _ → IMAGE_ASPECT_COLOR_BIT
-        barrier = zero { oldLayout           = oldLayout
-                       , newLayout           = newLayout
-                       , srcQueueFamilyIndex = QUEUE_FAMILY_IGNORED
-                       , dstQueueFamilyIndex = QUEUE_FAMILY_IGNORED
-                       , image               = image
-                       , subresourceRange    = zero { aspectMask     = aspectMask
-                                                    , baseMipLevel   = 0
-                                                    , levelCount     = mipLevels
-                                                    , baseArrayLayer = 0
-                                                    , layerCount     = 1 }
-                       , srcAccessMask       = srcAccessMask
-                       , dstAccessMask       = dstAccessMask }
+transitionImageLayout image format transition mipLevels cmdBuf = do
+  let TransitionDependent{ oldLayout     = ol,  newLayout     = nl
+                         , srcAccessMask = sam, dstAccessMask = dam
+                         , srcStageMask  = ssm ,dstStageMask  = dsm }
+                             = dependents transition
+      aspectM = case nl of
+        IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+          | hasStencilComponent format → IMAGE_ASPECT_DEPTH_BIT
+                                       ⌄ IMAGE_ASPECT_STENCIL_BIT
+          | otherwise                  → IMAGE_ASPECT_DEPTH_BIT
+        _ → IMAGE_ASPECT_COLOR_BIT
+      barrier = zero { oldLayout           = ol
+                     , newLayout           = nl
+                     , srcQueueFamilyIndex = QUEUE_FAMILY_IGNORED
+                     , dstQueueFamilyIndex = QUEUE_FAMILY_IGNORED
+                     , image               = image
+                     , subresourceRange    = zero { aspectMask     = aspectM
+                                                  , baseMipLevel   = 0
+                                                  , levelCount     = mipLevels
+                                                  , baseArrayLayer = 0
+                                                  , layerCount     = 1 }
+                     , srcAccessMask       = sam
+                     , dstAccessMask       = dam }
 
+
+  logInfo $ "transitioning image layout from "
+          ⧺ show ol ⧺ " to " ⧺ show nl
+  cmdPipelineBarrier cmdBuf ssm dsm zero V.empty V.empty V.empty
+  logInfo "image layout transition complete"
 generateMipmaps ∷ PhysicalDevice → Image → Format → Word32
   → Word32 → Word32 → CommandBuffer → Prog ε σ ()
 generateMipmaps pdev image format width height mipLevels cmdBuf = do
@@ -294,3 +324,63 @@ generateMipmaps pdev image format width height mipLevels cmdBuf = do
                            PIPELINE_STAGE_FRAGMENT_SHADER_BIT
                            zero V.empty V.empty V.empty
 
+createTextureSampler ∷ Device → Word32 → Prog ε σ Sampler
+createTextureSampler dev mipLevels = allocResource
+  (\sampler → destroySampler dev sampler Nothing)
+  $ createSampler dev samplerInfo Nothing
+  where
+    samplerInfo = zero
+      { magFilter = FILTER_LINEAR
+      , minFilter = FILTER_LINEAR
+      , addressModeU = SAMPLER_ADDRESS_MODE_REPEAT
+      , addressModeV = SAMPLER_ADDRESS_MODE_REPEAT
+      , addressModeW = SAMPLER_ADDRESS_MODE_REPEAT
+      , anisotropyEnable = True
+      , maxAnisotropy = 16
+      , borderColor = BORDER_COLOR_INT_OPAQUE_BLACK
+      , unnormalizedCoordinates = False
+      , compareEnable = False
+      , compareOp = COMPARE_OP_ALWAYS
+      , mipmapMode = SAMPLER_MIPMAP_MODE_LINEAR
+      , mipLodBias = 0
+      , minLod = 0
+      , maxLod = fromIntegral mipLevels
+      }
+createVulkanDescriptorPool ∷ Device → Prog ε σ DescriptorPool
+createVulkanDescriptorPool dev = allocResource
+  (\pool → destroyDescriptorPool dev pool Nothing)
+  $ createDescriptorPool dev poolInfo Nothing
+  where
+    poolSize = zero
+      { type' = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+      , descriptorCount = 1
+      }
+    poolInfo = zero
+      { maxSets = 1
+      , poolSizes = V.singleton poolSize
+      }
+createTextureDescriptorSet ∷ Device → DescriptorPool → DescriptorSetLayout 
+  → ImageView → Sampler → Prog ε σ DescriptorSet
+createTextureDescriptorSet dev pool layout textureImageView textureSampler = do
+  let allocInfo = zero
+        { descriptorPool = pool
+        , setLayouts = V.singleton layout
+        }
+  
+  descriptorSets ← allocateDescriptorSets dev allocInfo
+  
+  let imageInfo = zero
+        { imageView = textureImageView
+        , imageLayout = IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        , sampler = textureSampler
+        }
+      writeSet = zero
+        { dstSet = V.head descriptorSets
+        , dstBinding = 1
+        , dstArrayElement = 0
+        , descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+        , imageInfo = V.singleton imageInfo
+        }
+  
+  updateDescriptorSets dev (V.singleton (SomeStruct writeSet)) V.empty
+  return $ V.head descriptorSets

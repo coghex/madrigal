@@ -54,6 +54,7 @@ createGraphicalDevice inst surface = do
     ← pickGraphicalPhysicalDevice inst surface requiredDeviceExtensions
                                   (SurfaceFormatKHR FORMAT_B8G8R8_UNORM COLORSPACE_SRGB_NONLINEAR_KHR)
   props ← getPhysicalDeviceProperties pdev
+  feats ← getPhysicalDeviceFeatures   pdev
   logInfo $ "using device: " ⧺ (show $ decodeUtf8 $ deviceName props)
   let deviceCreateInfo ∷ DeviceCreateInfo '[]
       deviceCreateInfo = zero
@@ -62,7 +63,9 @@ createGraphicalDevice inst surface = do
           | i ← nub [gqfamind, pqfamind]
           ]
         , enabledExtensionNames = requiredDeviceExtensions
+        , enabledFeatures       = Just deviceFeatures
         }
+      deviceFeatures = zero { samplerAnisotropy = True }
   dev           ← allocResource destroyVulkanDevice
                     $ createDevice pdev deviceCreateInfo Nothing
   graphicsQueue ← getDeviceQueue dev gqfamind 0
@@ -130,8 +133,12 @@ pickGraphicalPhysicalDevice inst surface _requiredExtensions desiredFormat = do
         deviceScore ∷ MonadIO m ⇒ PhysicalDevice → m (Word64)
         deviceScore dev = do
           heaps ← memoryHeaps <$> getPhysicalDeviceMemoryProperties dev
+          features ← getPhysicalDeviceFeatures dev
           let totalSize = sum $ DI.size <$> heaps
-          pure totalSize
+              score = if samplerAnisotropy features
+                then totalSize
+                else 0
+          pure score
         deviceHasSwapchain ∷ MonadIO m ⇒ PhysicalDevice → m Bool
         deviceHasSwapchain dev = do
           (_, extensions) ← enumerateDeviceExtensionProperties dev Nothing
