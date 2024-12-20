@@ -8,6 +8,7 @@ import Control.Monad ( when )
 import Control.Monad.State.Class ( gets, modify )
 import GHC.Stack ( HasCallStack)
 import Data ( FPS(..) )
+import qualified Data.Vector as V
 import Lua ( luaThread )
 import Net ( networkThread )
 import Net.Data ( NetAction(..), NetServiceType(..) )
@@ -19,10 +20,12 @@ import Prog.Util ( getTime, logInfo, loop )
 import Sign.Data ( TState(TStart) )
 import Sign.Queue ( writeChan, writeQueue )
 import Sign.Var ( atomically, newTVar, readTVar, writeTVar, modifyTVar' )
-import Vulk.Data ( VulkanLoopData(..), VulkanWindow(..) )
+import Vulk.Command ( createVulkanCommandPool )
+import Vulk.Data ( VulkanLoopData(..), VulkanWindow(..), DevQueues(..) )
 import Vulk.Init ( withVulkanWindow, createRenderP, createGraphicsPipeline
                  , createFramebuffers, createCommandBuffers, createSemaphores )
-import Vulk.Loop ( acquireVulkanImage, submitQueue, waitIdle )
+import Vulk.Loop ( acquireVulkanImage, submitQueue, waitIdle, createVulkanSwapchain )
+import Vulk.Texture ( createTextureImageView )
 import Vulk.VulkGLFW ( getCurTick, glfwLoop
                      , glfwWaitEventsMeanwhile, initGLFWWindow )
 import qualified Vulk.GLFW as GLFW
@@ -48,13 +51,18 @@ runVulk = do
 
   -- Vulkan
   VulkanWindow {..} ← withVulkanWindow window "madrigal" 800 600
-  renderPass        ← createRenderP vwDevice vwFormat
-  graphicsPipe      ← createGraphicsPipeline vwDevice renderPass vwExtent vwFormat
-  framebuffers      ← createFramebuffers vwDevice vwImageViews renderPass vwExtent
-  commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe
-                                           vwGraphicsQueueFamilyIndex
-                                           framebuffers vwExtent
   (imageAvailableSemaphore, renderFinishedSemaphore) ← createSemaphores vwDevice
+  commandPool       ← createVulkanCommandPool vwDevice
+                       $ graphicsFamIdx vwDevQueues
+  --(texture, _)      ← createTextureImageView vwPhysicalDevice vwDevice commandPool
+  --                      (graphicsQueue vwDevQueues) "dat/tile01.png"
+
+--  renderPass        ← createRenderP vwDevice vwFormat
+--  graphicsPipe      ← createGraphicsPipeline vwDevice renderPass vwExtent vwFormat
+--  framebuffers      ← createFramebuffers vwDevice (V.singleton texture) renderPass vwExtent
+--  commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe
+--                                           vwGraphicsQueueFamilyIndex
+--                                           framebuffers vwExtent
   liftIO $ GLFW.showWindow vwGLFWWindow
 
   glfwWaitEventsMeanwhile $ do
@@ -65,24 +73,25 @@ runVulk = do
       firstTick ← liftIO $ getCurTick
       beforeSwapchainCreation
       vulkLoop window
-        $ VulkanLoopData windowSizeChanged frameCount currentSec vwDevice
-                         vwSwapchain vwGraphicsQueue vwPresentQueue
-                         imageAvailableSemaphore renderFinishedSemaphore commandBuffers
+        $ VulkanLoopData windowSizeChanged vwDevQueues frameCount
+                         currentSec vwPhysicalDevice vwDevice vwSurface
+                         imageAvailableSemaphore renderFinishedSemaphore
     logInfo "i am madrigal"
 
 vulkLoop ∷ GLFW.Window → VulkanLoopData → Prog ε σ LoopControl
-vulkLoop window (VulkanLoopData windowSizeChanged frameCount currentSec dev
-                                swapchain graphicsQueue presentQueue
-                                imageAvailableSemaphore renderFinishedSemaphore
-                                commandBuffers) = do
+vulkLoop window (VulkanLoopData windowSizeChanged devQueues frameCount
+                                currentSec pdev dev surf imageAvailableSemaphore
+                                renderFinishedSemaphore) = do
   sizeChanged ← liftIO $ atomically $ readTVar windowSizeChanged
+
+  swapinfo ← createVulkanSwapchain pdev dev devQueues surf
+
   shouldExit ← glfwLoop window $ do
     env ← ask
-
-    imageIndex ← acquireVulkanImage dev swapchain maxBound imageAvailableSemaphore
-    submitQueue swapchain imageAvailableSemaphore renderFinishedSemaphore
-                imageIndex graphicsQueue presentQueue commandBuffers
-    waitIdle dev graphicsQueue
+    --imageIndex ← acquireVulkanImage dev swapchain maxBound imageAvailableSemaphore
+    --submitQueue swapchain imageAvailableSemaphore renderFinishedSemaphore
+    --            imageIndex graphicsQueue presentQueue commandBuffers
+    --waitIdle dev graphicsQueue
 
     processEvents
 

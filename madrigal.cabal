@@ -57,6 +57,7 @@ executable madrigal
                    Vulk.Init
                    Vulk.Loop
                    Vulk.Shader
+                   Vulk.Texture
                    Vulk.VulkGLFW
     -- LANGUAGE extensions used by modules in this package.
     default-extensions: DefaultSignatures
@@ -82,6 +83,7 @@ executable madrigal
                  , filepath
                  , GLFW-b
                  , hslua
+                 , JuicyPixels
                  , monad-logger
                  , mtl
                  , network
@@ -90,6 +92,7 @@ executable madrigal
                  , text
                  , time
                  , transformers
+                 , utf8-string
                  , vector
                  , vulkan
                  , vulkan-utils

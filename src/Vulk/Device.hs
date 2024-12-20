@@ -22,7 +22,7 @@ import Prog ( Prog, MonadIO(liftIO) )
 import Prog.Data ( State(..) )
 import Prog.Foreign ( newArrayRes )
 import Prog.Util ( isDev, logExcept, logInfo, allocResource )
-import Vulk.Data ( DevQueues(..) )
+import Vulk.Data ( DevQueues(..), SwapchainSupportDetails(..) )
 import Vulkan.CStruct.Extends
 import Vulkan.Extensions.VK_KHR_surface
 import qualified Vulkan.Extensions.VK_KHR_surface as SF
@@ -33,9 +33,20 @@ import Vulkan.Core10
 import qualified Vulkan.Core10.DeviceInitialization as DI
 import Vulkan.Zero
 
+
+-- | this ends up being where we get the window size from, since the
+--   swapchain only supports the max window size
+querySwapchainSupport ∷ PhysicalDevice → SurfaceKHR
+  → Prog ε σ SwapchainSupportDetails
+querySwapchainSupport pdev surf = do
+  capabilities     ← getPhysicalDeviceSurfaceCapabilitiesKHR pdev surf
+  (_,formats)      ← getPhysicalDeviceSurfaceFormatsKHR      pdev surf
+  (_,presentModes) ← getPhysicalDeviceSurfacePresentModesKHR pdev surf
+  return SwapchainSupportDetails {..}
+
 -- | creates abstract device from physical one
 createGraphicalDevice ∷ Instance → SurfaceKHR
-  → Prog ε σ (Device, Queue, Word32, Queue, Format, Extent2D, SwapchainKHR)
+  → Prog ε σ ( PhysicalDevice, Device, DevQueues)
 createGraphicalDevice inst surface = do
   let requiredDeviceExtensions = [KHR_SWAPCHAIN_EXTENSION_NAME
                                  ,KHR_PORTABILITY_SUBSET_EXTENSION_NAME] -- macOS
@@ -56,37 +67,38 @@ createGraphicalDevice inst surface = do
                     $ createDevice pdev deviceCreateInfo Nothing
   graphicsQueue ← getDeviceQueue dev gqfamind 0
   presentQueue  ← getDeviceQueue dev pqfamind 0
-  let swapchainCreateInfo ∷ SwapchainCreateInfoKHR '[]
-      swapchainCreateInfo =
-        let (sharingMode, queueFamilyIndices) = if graphicsQueue ≡ presentQueue
-              then (SHARING_MODE_EXCLUSIVE, [])
-              else (SHARING_MODE_CONCURRENT
-                   , [gqfamind, pqfamind]
-                   )
-        in zero { surface            = surface
-                , minImageCount      = SF.minImageCount surfaceCaps + 1
-                , imageFormat        = SF.format surfaceFormat
-                , imageColorSpace    = SF.colorSpace surfaceFormat
-                , imageExtent        = case currentExtent
-                                              (surfaceCaps ∷ SurfaceCapabilitiesKHR) of
-                                                Extent2D w h | w ≡ maxBound, h ≡ maxBound →
-                                                  Extent2D (fromIntegral windowWidth)
-                                                           (fromIntegral windowHeight)
-                                                e → e
-                , imageArrayLayers   = 1
-                , imageUsage         = IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-                , imageSharingMode   = sharingMode
-                , queueFamilyIndices = queueFamilyIndices
-                , preTransform       = currentTransform
-                                         (surfaceCaps ∷ SurfaceCapabilitiesKHR)
-                , compositeAlpha     = COMPOSITE_ALPHA_OPAQUE_BIT_KHR
-                , presentMode        = presentMode
-                , clipped            = True
-                }
-  swapchain ← allocResource (destroyVulkanSwapchain dev)
-                $ createSwapchainKHR dev swapchainCreateInfo Nothing
-  pure ( dev, graphicsQueue, gqfamind, presentQueue, SF.format surfaceFormat
-       , SW.imageExtent swapchainCreateInfo, swapchain )
+  return (pdev, dev, DevQueues graphicsQueue presentQueue gqfamind pqfamind)
+  --let swapchainCreateInfo ∷ SwapchainCreateInfoKHR '[]
+  --    swapchainCreateInfo =
+  --      let (sharingMode, queueFamilyIndices) = if graphicsQueue ≡ presentQueue
+  --            then (SHARING_MODE_EXCLUSIVE, [])
+  --            else (SHARING_MODE_CONCURRENT
+  --                 , [gqfamind, pqfamind]
+  --                 )
+  --      in zero { surface            = surface
+  --              , minImageCount      = SF.minImageCount surfaceCaps + 1
+  --              , imageFormat        = SF.format surfaceFormat
+  --              , imageColorSpace    = SF.colorSpace surfaceFormat
+  --              , imageExtent        = case currentExtent
+  --                                            (surfaceCaps ∷ SurfaceCapabilitiesKHR) of
+  --                                              Extent2D w h | w ≡ maxBound, h ≡ maxBound →
+  --                                                Extent2D (fromIntegral windowWidth)
+  --                                                         (fromIntegral windowHeight)
+  --                                              e → e
+  --              , imageArrayLayers   = 1
+  --              , imageUsage         = IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+  --              , imageSharingMode   = sharingMode
+  --              , queueFamilyIndices = queueFamilyIndices
+  --              , preTransform       = currentTransform
+  --                                       (surfaceCaps ∷ SurfaceCapabilitiesKHR)
+  --              , compositeAlpha     = COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+  --              , presentMode        = presentMode
+  --              , clipped            = True
+  --              }
+  --swapchain ← allocResource (destroyVulkanSwapchain dev)
+  --              $ createSwapchainKHR dev swapchainCreateInfo Nothing
+  --pure ( pdev, dev, graphicsQueue, gqfamind, presentQueue, SF.format surfaceFormat
+  --     , SW.imageExtent swapchainCreateInfo, swapchain )
 
 destroyVulkanDevice ∷ Device → Prog ε σ ()
 destroyVulkanDevice dev = destroyDevice dev Nothing

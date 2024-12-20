@@ -5,7 +5,7 @@
 module Vulk.Command where
 import Prelude()
 import UPrelude
-import Data.Word ( Word64(..) )
+import Data.Word ( Word32(..), Word64(..) )
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS
 import Prog ( Prog(..) )
@@ -15,6 +15,13 @@ import Vulk.Foreign ( runVk )
 import Vulkan.CStruct.Extends
 import Vulkan.Core10
 import Vulkan.Zero
+
+-- | allocates resources for a command pool
+createVulkanCommandPool ∷ Device → Word32 → Prog ε σ CommandPool
+createVulkanCommandPool dev qfi = do
+  let createInfo = zero { queueFamilyIndex = qfi } ∷ CommandPoolCreateInfo
+  allocResource (\cp → destroyCommandPool dev cp Nothing)
+    $ createCommandPool dev createInfo Nothing
 
 -- | runs commands locally in a command buffer then returns the result
 runCommandsOnce ∷ Device → CommandPool → Queue

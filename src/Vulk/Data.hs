@@ -18,36 +18,48 @@ data VulkResult = VulkSuccess | VulkError | GLFWError deriving (Show, Eq)
 -- | the main data for the vulkan loop
 data VulkanLoopData = VulkanLoopData
        { windowSizeChanged       ∷ TVar Bool
+       , devQueues               ∷ DevQueues
        , framCount               ∷ TVar Int
        , currentSec              ∷ TVar Int
+       , physicalDevice          ∷ PhysicalDevice
        , device                  ∷ Device
-       , swapchain               ∷ SwapchainKHR
-       , graphicsQueue           ∷ Queue
-       , presentQueue            ∷ Queue
+       , surface                 ∷ SurfaceKHR
        , imageAvailableSemaphore ∷ Semaphore
        , renderFinishedSemaphore ∷ Semaphore
-       , commandBuffers          ∷ V.Vector CommandBuffer
        }
 
 -- 
 data VulkanWindow = VulkanWindow
   { vwGLFWWindow               ∷ GLFW.Window
+  , vwPhysicalDevice           ∷ PhysicalDevice
   , vwDevice                   ∷ Device
   , vwSurface                  ∷ SurfaceKHR
-  , vwSwapchain                ∷ SwapchainKHR
-  , vwExtent                   ∷ Extent2D
-  , vwFormat                   ∷ Format
-  , vwImageViews               ∷ V.Vector ImageView
-  , vwGraphicsQueue            ∷ Queue
-  , vwGraphicsQueueFamilyIndex ∷ Word32
-  , vwPresentQueue             ∷ Queue
+  , vwSwapchain                ∷ Maybe SwapchainKHR
+  , vwExtent                   ∷ Maybe Extent2D
+  , vwFormat                   ∷ Maybe Format
+  , vwDevQueues                ∷ DevQueues
   }
 
 -- | we are only using one device, so queues are
 --   only relevant to pass data around
 data DevQueues = DevQueues { graphicsQueue  ∷ Queue
                            , presentQueue   ∷ Queue
-                           , qFamIndices    ∷ Ptr Word32
+--                           , qFamIndices    ∷ Ptr Word32
                            , graphicsFamIdx ∷ Word32
                            , presentFamIdx  ∷ Word32
                            } deriving (Eq, Show)
+
+-- | a structure of the capabilities of the device in question
+data SwapchainSupportDetails = SwapchainSupportDetails
+  { capabilities ∷ SurfaceCapabilitiesKHR
+  , formats      ∷ V.Vector SurfaceFormatKHR
+  , presentModes ∷ V.Vector PresentModeKHR
+  } deriving (Show)
+
+data SwapchainInfo = SwapchainInfo
+         { swapchain     ∷ SwapchainKHR
+         , swapImgs      ∷ V.Vector Image
+         , swapImgFormat ∷ Format
+         , swapExtent    ∷ Extent2D
+         } deriving (Eq, Show)
+

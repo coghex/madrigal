@@ -8,6 +8,7 @@ import Control.Monad ( (=<<) )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Data.Bits ((.|.))
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.UTF8 as BSU
 import Data.Foldable ( toList, for_ )
 import Data.List ( partition )
 import qualified Data.Text as T
@@ -19,7 +20,7 @@ import Prog ( Prog(..) )
 import Prog.Foreign
 import Prog.Util
 import Say
-import Vulk.Data ( VulkanWindow(..) )
+import Vulk.Data ( VulkanWindow(..), DevQueues(..) )
 import Vulk.Device ( createGraphicalDevice )
 import Vulk.Foreign
 import Vulk.Shader ( createShaders )
@@ -37,7 +38,7 @@ import Vulkan.Zero
 
 withVulkanWindow ∷ GLFW.Window → T.Text → Int → Int → Prog ε σ VulkanWindow
 withVulkanWindow window name width height = do
-  instCI   ← vulkInstanceCreateInfo
+  instCI   ← vulkInstanceCreateInfo $ BSU.fromString $ T.unpack name
   vulkInst ← allocResource destroyVulkanInstance
                $ createInstance instCI Nothing
   debugMsg ← allocResource (destroyVulkanDebugUtilsMessengerEXT vulkInst)
@@ -49,27 +50,8 @@ withVulkanWindow window name width height = do
                              zero { message = "Vulkan Debugging Started..." }
   surface ← allocResource (destroyVulkanSurface vulkInst)
               $ createSurf vulkInst window
-  (dev,graphicsQueue,graphicsQueueFamilyIndex,presentQueue,swapchainFormat,swapchainExtent,swapchain) ← createGraphicalDevice vulkInst surface
-  (_, images) ← getSwapchainImagesKHR dev swapchain
-  let imageViewCreateInfo i = zero
-        { image            = i
-        , viewType         = IMAGE_VIEW_TYPE_2D
-        , format           = swapchainFormat
-        , components       = zero { r = COMPONENT_SWIZZLE_IDENTITY
-                                  , g = COMPONENT_SWIZZLE_IDENTITY
-                                  , b = COMPONENT_SWIZZLE_IDENTITY
-                                  , a = COMPONENT_SWIZZLE_IDENTITY }
-        , subresourceRange = zero { aspectMask     = IMAGE_ASPECT_COLOR_BIT
-                                  , baseMipLevel   = 0
-                                  , levelCount     = 1
-                                  , baseArrayLayer = 0
-                                  , layerCount     = 1 } }
-  imageViews ← for images
-    $ \i → allocResource (destroyVulkanImage dev)
-             $ createImageView dev (imageViewCreateInfo i) Nothing
-  pure $ VulkanWindow window dev surface swapchain swapchainExtent swapchainFormat
-                      imageViews graphicsQueue graphicsQueueFamilyIndex presentQueue
-
+  (pdev,dev,dq) ← createGraphicalDevice vulkInst surface
+  pure $ VulkanWindow window pdev dev surface Nothing Nothing Nothing dq
 
 createSurf ∷ Instance → GLFW.Window → Prog ε σ SurfaceKHR
 createSurf vulkInst window = allocaPeek $ runVk ∘ GLFW.createWindowSurface
@@ -90,10 +72,10 @@ destroyVulkanRenderPass dev rp = destroyRenderPass dev rp Nothing
 destroyVulkanPipelineLayout ∷ Device → PipelineLayout → Prog ε σ ()
 destroyVulkanPipelineLayout dev pl = destroyPipelineLayout dev pl Nothing
 
-vulkInstanceCreateInfo ∷ MonadIO m ⇒ m ( InstanceCreateInfo
+vulkInstanceCreateInfo ∷ MonadIO m ⇒ BS.ByteString → m ( InstanceCreateInfo
                                          '[DebugUtilsMessengerCreateInfoEXT
                                          , ValidationFeaturesEXT] )
-vulkInstanceCreateInfo = do
+vulkInstanceCreateInfo name = do
   glfwReqExts ← liftIO $ traverse BS.packCString =<< GLFW.getRequiredInstanceExtensions
   let glfwReqExts'  = KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME : glfwReqExts
       glfwReqExts'' = KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
@@ -121,7 +103,7 @@ vulkInstanceCreateInfo = do
   let instanceCreateFlags = INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
   pure
     $ zero
-        { applicationInfo       = Just zero { applicationName = Just "madrigal"
+        { applicationInfo       = Just zero { applicationName = Just name
                                             , apiVersion = API_VERSION_1_0 }
         , enabledLayerNames     = V.fromList layers
         , enabledExtensionNames = V.fromList extensions
