@@ -331,21 +331,21 @@ createTextureSampler dev mipLevels = allocResource
   $ createSampler dev samplerInfo Nothing
   where
     samplerInfo = zero
-      { magFilter = FILTER_LINEAR
-      , minFilter = FILTER_LINEAR
+      { magFilter = FILTER_NEAREST
+      , minFilter = FILTER_NEAREST
       , addressModeU = SAMPLER_ADDRESS_MODE_REPEAT
       , addressModeV = SAMPLER_ADDRESS_MODE_REPEAT
       , addressModeW = SAMPLER_ADDRESS_MODE_REPEAT
-      , anisotropyEnable = True
-      , maxAnisotropy = 16
+      , anisotropyEnable = False
+      , maxAnisotropy = 1
       , borderColor = BORDER_COLOR_INT_OPAQUE_BLACK
       , unnormalizedCoordinates = False
       , compareEnable = False
       , compareOp = COMPARE_OP_ALWAYS
-      , mipmapMode = SAMPLER_MIPMAP_MODE_LINEAR
+      , mipmapMode = SAMPLER_MIPMAP_MODE_NEAREST
       , mipLodBias = 0
       , minLod = 0
-      , maxLod = fromIntegral mipLevels
+      , maxLod = 0 -- no mipmapping
       }
 createVulkanDescriptorPool ∷ Device → Prog ε σ DescriptorPool
 createVulkanDescriptorPool dev = allocResource

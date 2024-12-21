@@ -288,7 +288,7 @@ createCommandBuffers dev renderPass graphicsPipeline pipelineLayout
                   cmdBindPipeline buffer PIPELINE_BIND_POINT_GRAPHICS graphicsPipeline
                   cmdBindDescriptorSets buffer PIPELINE_BIND_POINT_GRAPHICS
                     pipelineLayout 0 [descriptorSet] []
-                  cmdDraw buffer 3 1 0 0
+                  cmdDraw buffer 6 1 0 0
   pure buffers
 
 createSemaphores ∷ Device → Prog ε σ (Semaphore, Semaphore)
