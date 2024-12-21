@@ -248,7 +248,8 @@ transitionImageLayout image format transition mipLevels cmdBuf = do
 
   logInfo $ "transitioning image layout from "
           ⧺ show ol ⧺ " to " ⧺ show nl
-  cmdPipelineBarrier cmdBuf ssm dsm zero V.empty V.empty V.empty
+  cmdPipelineBarrier cmdBuf ssm dsm zero V.empty V.empty
+                     $ V.singleton $ SomeStruct barrier
   logInfo "image layout transition complete"
 generateMipmaps ∷ PhysicalDevice → Image → Format → Word32
   → Word32 → Word32 → CommandBuffer → Prog ε σ ()
@@ -376,7 +377,7 @@ createTextureDescriptorSet dev pool layout textureImageView textureSampler = do
         }
       writeSet = zero
         { dstSet = V.head descriptorSets
-        , dstBinding = 1
+        , dstBinding = 0
         , dstArrayElement = 0
         , descriptorType = DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
         , imageInfo = V.singleton imageInfo

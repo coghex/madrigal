@@ -24,8 +24,10 @@ data VulkanLoopData = VulkanLoopData
        , physicalDevice          ∷ PhysicalDevice
        , device                  ∷ Device
        , surface                 ∷ SurfaceKHR
+       , swapchain               ∷ SwapchainInfo
        , imageAvailableSemaphore ∷ Semaphore
        , renderFinishedSemaphore ∷ Semaphore
+       , commandBuffers          ∷ V.Vector CommandBuffer
        }
 
 -- 
@@ -55,9 +57,9 @@ data SwapchainSupportDetails = SwapchainSupportDetails
   } deriving (Show)
 
 data SwapchainInfo = SwapchainInfo
-         { swapchain     ∷ SwapchainKHR
-         , swapImgs      ∷ V.Vector Image
-         , swapImgFormat ∷ Format
-         , swapExtent    ∷ Extent2D
+         { siSwapchain     ∷ SwapchainKHR
+         , siSwapImgs      ∷ V.Vector Image
+         , siSwapImgFormat ∷ Format
+         , siSwapExtent    ∷ Extent2D
          } deriving (Eq, Show)
 

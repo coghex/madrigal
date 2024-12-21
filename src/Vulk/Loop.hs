@@ -54,22 +54,22 @@ createVulkanSwapchain pdev dev queues surface = do
   swapchain ← allocResource (\s0 → destroySwapchainKHR dev s0 Nothing)
     $ (createSwapchainKHR dev swCreateInfo Nothing)
   (_,swapImgs) ← getSwapchainImagesKHR dev swapchain
-  return $ SwapchainInfo { swapchain      = swapchain
-                         , swapImgs       = swapImgs
-                         , swapImgFormat  = form
-                         , swapExtent     = sExtent }
+  return $ SwapchainInfo { siSwapchain      = swapchain
+                         , siSwapImgs       = swapImgs
+                         , siSwapImgFormat  = form
+                         , siSwapExtent     = sExtent }
 
 -- | creates image views for swapchain images
 createSwapchainImageViews ∷ Device → SwapchainInfo → Prog ε σ (V.Vector ImageView)
 createSwapchainImageViews dev SwapchainInfo{..} = do
-  V.mapM createImageViewf swapImgs
+  V.mapM createImageViewf siSwapImgs
   where
     createImageViewf image = 
       allocResource (\iv → destroyImageView dev iv Nothing) $
         createImageView dev zero
           { image = image
           , viewType = IMAGE_VIEW_TYPE_2D
-          , format = swapImgFormat
+          , format = siSwapImgFormat
           , components = zero
               { r = COMPONENT_SWIZZLE_IDENTITY
               , g = COMPONENT_SWIZZLE_IDENTITY

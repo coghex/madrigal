@@ -79,17 +79,17 @@ runVulk = do
   descriptorSet     ← createDescriptorSets vwDevice descriptorPool
                         descriptorSetLayout textureView textureSampler
 
-  let vwFormat = swapImgFormat vwSwapchain
-      vwExtent = swapExtent    vwSwapchain
+  let vwFormat = siSwapImgFormat vwSwapchain
+      vwExtent = siSwapExtent    vwSwapchain
   renderPass        ← createRenderP vwDevice vwFormat
   (graphicsPipe,pl) ← createVulkanGraphicsPipeline vwDevice renderPass 
-                        (swapExtent vwSwapchain) vwFormat descriptorSetLayout
+                        (siSwapExtent vwSwapchain) vwFormat descriptorSetLayout
   swapchainImgViews ← createSwapchainImageViews vwDevice vwSwapchain
   framebuffers      ← createFramebuffers vwDevice swapchainImgViews
-                        renderPass (swapExtent vwSwapchain)
+                        renderPass (siSwapExtent vwSwapchain)
   commandBuffers    ← createCommandBuffers vwDevice renderPass graphicsPipe pl
                                            (graphicsFamIdx vwDevQueues)
-                                           framebuffers (swapExtent vwSwapchain)
+                                           framebuffers (siSwapExtent vwSwapchain)
                                            descriptorSet
   liftIO $ GLFW.showWindow vwGLFWWindow
 
@@ -101,22 +101,25 @@ runVulk = do
       firstTick ← liftIO $ getCurTick
       beforeSwapchainCreation
       vulkLoop window
-        $ VulkanLoopData windowSizeChanged vwDevQueues frameCount
-                         currentSec vwPhysicalDevice vwDevice vwSurface
+        $ VulkanLoopData windowSizeChanged vwDevQueues frameCount currentSec
+                         vwPhysicalDevice vwDevice vwSurface vwSwapchain
                          imageAvailableSemaphore renderFinishedSemaphore
+                         commandBuffers
     logInfo "i am madrigal"
 
 vulkLoop ∷ GLFW.Window → VulkanLoopData → Prog ε σ LoopControl
 vulkLoop window (VulkanLoopData windowSizeChanged devQueues frameCount
-                                currentSec pdev dev surf imageAvailableSemaphore
-                                renderFinishedSemaphore) = do
+         currentSec pdev dev surf swapch imageAvailableSemaphore
+         renderFinishedSemaphore commandBuffers) = do
   sizeChanged ← liftIO $ atomically $ readTVar windowSizeChanged
   shouldExit ← glfwLoop window $ do
     env ← ask
-    --imageIndex ← acquireVulkanImage dev swapchain maxBound imageAvailableSemaphore
-    --submitQueue swapchain imageAvailableSemaphore renderFinishedSemaphore
-    --            imageIndex graphicsQueue presentQueue commandBuffers
-    --waitIdle dev graphicsQueue
+    imageIndex ← acquireVulkanImage dev (siSwapchain swapch)
+                                    maxBound imageAvailableSemaphore
+    submitQueue (siSwapchain swapch) imageAvailableSemaphore renderFinishedSemaphore
+                imageIndex (graphicsQueue devQueues)
+                (presentQueue devQueues) commandBuffers
+    waitIdle dev $ graphicsQueue devQueues
 
     processEvents
 
